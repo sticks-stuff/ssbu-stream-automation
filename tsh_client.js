@@ -68,6 +68,9 @@ tags = JSON.parse(fs.readFileSync('tags.json', 'utf8'));
 var p1;
 var p2;
 
+let currentSet = null;
+let oldSet = null;
+
 async function tshLoadSet(info) {
 	var players = JSON.parse(JSON.stringify(info.players));
 	// console.log(tags)
@@ -95,15 +98,16 @@ async function tshLoadSet(info) {
 	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
 
 	for (const set of setData) {
-		set.p1_name = set.p1_name.toLowerCase();
-		set.p2_name = set.p2_name.toLowerCase();
+		var editedSet = JSON.parse(JSON.stringify(set));
+		editedSet.p1_name = set.p1_name.toLowerCase();
+		editedSet.p2_name = set.p2_name.toLowerCase();
 
-		if (set.p1_name.includes(' | ')) {
-			set.p1_name = set.p1_name.split(' | ')[1];
+		if (editedSet.p1_name.includes(' | ')) {
+			editedSet.p1_name = editedSet.p1_name.split(' | ')[1];
 		}
 
-		if (set.p2_name.includes(' | ')) {
-			set.p2_name = set.p2_name.split(' | ')[1];
+		if (editedSet.p2_name.includes(' | ')) {
+			editedSet.p2_name = editedSet.p2_name.split(' | ')[1];
 		}
 
 		let p1found = false;
@@ -118,11 +122,11 @@ async function tshLoadSet(info) {
 
 			player.name = player.name.toLowerCase();
 
-			if (player.startggname === set.p1_name || player.name === set.p1_name) {
+			if (player.startggname === editedSet.p1_name || player.name === editedSet.p1_name) {
 				p1found = i;
 			}
 
-			if (player.startggname === set.p2_name || player.name === set.p2_name) {
+			if (player.startggname === editedSet.p2_name || player.name === editedSet.p2_name) {
 				p2found = i;
 			}
 		}
@@ -131,6 +135,7 @@ async function tshLoadSet(info) {
 		console.log({ p2found })
 
 		if (p1found !== false && p2found !== false) {
+			currentSet = set;
 			await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}`);
 			var isSwapped = await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-get-swap');
 			console.log(isSwapped)
@@ -173,6 +178,7 @@ if (process.argv[2] == 'tsh-enable') {
 var overlayId;
 
 let obsConnected = false;
+let timestampsFileName;
 
 (async () => {
     try {
@@ -186,10 +192,31 @@ let obsConnected = false;
         }).then((response) => {
             overlayId = response.sceneItemId;
         })
+		obs.call('GetStreamStatus').then((response) => {
+			if(response.outputActive) {
+				createTimestampsFile();
+			}
+		})
     } catch (error) {
         console.log('Could not connect to OBS');
     }
 })();
+
+obs.on('StreamStateChanged', response => {
+	if(response.outputActive == true) {
+		createTimestampsFile();
+	}
+})
+
+function createTimestampsFile() {
+	const date = new Date();
+	timestampsFileName = `Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`;
+
+	fs.writeFile(timestampsFileName, '', (err) => {
+		if (err) throw err;
+		console.log(`Created ${timestampsFileName}`);
+	});
+}
 
 
 function connectToSwitch() {
@@ -231,6 +258,21 @@ function connectToSwitch() {
 				if (info.is_match && oldMatchInfo !== info.is_match) {
 					oldMatchInfo = info.is_match;
 					obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+
+					if (obsConnected && currentSet != null && currentSet !== oldSet) {
+						obs.call('GetStreamStatus').then((response) => {
+							if(response.outputActive && timestampsFileName != undefined) {
+								let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+								fs.appendFile(timestampsFileName, timestamp, (err) => {
+									if (err) throw err;
+									console.log(timestamp);
+								});
+								
+							}
+						})
+						oldSet = currentSet;
+					}
+
 				} else if (!info.is_match && oldMatchInfo !== info.is_match) {
 					oldMatchInfo = info.is_match;
 					obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
@@ -296,6 +338,10 @@ function connectToSwitch() {
         console.log('Connection closed');
         setTimeout(connectToSwitch, 60000);  // Try to reconnect after 60 seconds
     });
+	server.on('error', (error) => {
+		console.log('Connection failed', error);
+		setTimeout(connectToSwitch, 60000);  // Try to reconnect after 60 seconds
+	});
 }
 
 connectToSwitch();
