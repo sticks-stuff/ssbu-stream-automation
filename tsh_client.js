@@ -94,8 +94,8 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
-	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
+	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
+	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -232,7 +232,7 @@ function connectToSwitch() {
 
 			let numChar = 0;
 			for (const player of info.players) {
-				if (player.character !== 0 && !player.is_cpu) {
+				if (!player.is_cpu && player.name != null) {
 					numChar += 1;
 				}
 			}
@@ -305,20 +305,32 @@ function connectToSwitch() {
 								var winningPlayer;
 								var losingPlayer;
 
-								info.players.forEach(player => {
-									if (player.stocks > 0 && player.character != 0) {
-										winningPlayer = player;
+								// info.players.forEach(player => {
+									// if (player.stocks > 0 && player.name != null) {
+										// winningPlayer = player;
 										// break;
+									// }
+								// });
+								
+								for(let i = 0; i < info.players.length; i++) {
+									let player = info.players[i];
+									if (player.stocks > 0 && player.name != null) {
+										winningPlayer = player;
+										// console.log(`winng player name ${player.name} left`);
+										// console.log(`winng player had ${player.stocks} left`);
+										break;
 									}
-								});
+								}
 
 								if(winningPlayer) {
-									if (winningPlayer.name == p1) {
+									if (winningPlayer.name.toLowerCase() == p1) {
 										console.log(`${p1} won at ${new Date()}`);
 										await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-team0-scoreup');
-									} else {
+									} else if(winningPlayer.name.toLowerCase() == p2) {
 										console.log(`${p2} won at ${new Date()}`);
 										await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-team1-scoreup');
+									} else {
+										console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`)
 									}
 								}
 							}
