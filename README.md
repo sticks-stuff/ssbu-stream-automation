@@ -1,3 +1,9 @@
-# ssbu-obs-scene-switcher
+# ssbu-stream-automation
 
-Uses [smush_info](https://github.com/jam1garner/smush_info) to change OBS scenes based on the game. Will also hide overlay when the number of human players is not 2.
+Uses my fork of [smush_info](https://github.com/sticks-stuff/smush_info) to automated various stream things
+
+- Changes OBS scenes based on the game
+- Hide TSH overlay when the number of human players is not 2
+- Loads set in TSH based in-game tags
+- Auto flips the player positions in TSH to align them with the game
+- Automatically updates the score in TSH on game end
