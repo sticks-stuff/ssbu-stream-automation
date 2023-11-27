@@ -7,3 +7,4 @@ Uses my fork of [smush_info](https://github.com/sticks-stuff/smush_info) to auto
 - Loads set in TSH based in-game tags
 - Auto flips the player positions in TSH to align them with the game
 - Automatically updates the score in TSH on game end
+- Dumps timestamps of sets to file
