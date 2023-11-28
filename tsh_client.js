@@ -71,6 +71,17 @@ var p2;
 let currentSet = null;
 let oldSet = null;
 
+const PORT_COLORS = [
+	'fe3636',
+	'2e89ff',
+	'ffbb10',
+	'28b448',
+	'f98636',
+	'2cd2ea',
+	'ff9bb4',
+	'9570ff'
+]
+
 async function tshLoadSet(info) {
 	var players = JSON.parse(JSON.stringify(info.players));
 	// console.log(tags)
@@ -122,11 +133,11 @@ async function tshLoadSet(info) {
 
 			player.name = player.name.toLowerCase();
 
-			if (player.startggname === editedSet.p1_name || player.name === editedSet.p1_name) {
+			if ((player.startggname === editedSet.p1_name || player.name === editedSet.p1_name) && player.character != 0) {
 				p1found = i;
 			}
 
-			if (player.startggname === editedSet.p2_name || player.name === editedSet.p2_name) {
+			if ((player.startggname === editedSet.p2_name || player.name === editedSet.p2_name) && player.character != 0) {
 				p2found = i;
 			}
 		}
@@ -147,6 +158,8 @@ async function tshLoadSet(info) {
 				if (isSwapped == "False") {
 					await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-swap-teams');
 				}
+				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team0-color-${PORT_COLORS[p1found]}`);
+				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team1-color-${PORT_COLORS[p2found]}`);
 				// console.log("waiting 3 seconds for flip")
 				// setTimeout(async () => {
 				// 	console.log("flipping!")
@@ -160,6 +173,8 @@ async function tshLoadSet(info) {
 				if (isSwapped == "True") {
 					await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-swap-teams');
 				}
+				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team1-color-${PORT_COLORS[p1found]}`);
+				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team0-color-${PORT_COLORS[p2found]}`);
 			}
 
 			break;
@@ -228,7 +243,13 @@ function connectToSwitch() {
 		let numCharOld = 0;
 
 		server.on('data', async (data) => {
-			const info = JSON.parse(data.toString());
+			var info;
+			try {
+				info = JSON.parse(data.toString());
+			} catch (error) {
+				console.log('Could not parse JSON');
+				return;
+			}
 
 			let numChar = 0;
 			for (const player of info.players) {
