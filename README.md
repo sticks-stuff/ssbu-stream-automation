@@ -6,5 +6,6 @@ Uses my fork of [smush_info](https://github.com/sticks-stuff/smush_info) to auto
 - Hide TSH overlay when the number of human players is not 2
 - Loads set in TSH based in-game tags
 - Auto flips the player positions in TSH to align them with the game
+- Changes player colour of TSH overlay based on port
 - Automatically updates the score in TSH on game end
 - Dumps timestamps of sets to file
