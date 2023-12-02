@@ -15,6 +15,7 @@ const OBS_PASSWORD = 'gIrwKyVys5bACaMg';
 
 const GAME_SCENE = 'Game';
 const NOT_GAME_SCENE = 'Not-Game';
+const BRACKET_SCENE = 'Bracket';
 const OVERLAY_NAME = 'Overlay';
 
 function loadJsonFromUrl(url) {
@@ -233,6 +234,7 @@ function createTimestampsFile() {
 	});
 }
 
+let resultsScreenStart = null;
 
 function connectToSwitch() {
 	const server = net.createConnection({ host: SWITCH_IP, port: SWITCH_PORT }, () => {
@@ -297,6 +299,17 @@ function connectToSwitch() {
 				} else if (!info.is_match && oldMatchInfo !== info.is_match) {
 					oldMatchInfo = info.is_match;
 					obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+				}
+
+				if (info.is_results_screen) {
+					if (resultsScreenStart === null) {
+						resultsScreenStart = Date.now();
+					} else if (Date.now() - resultsScreenStart > 60000) {
+						obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+						resultsScreenStart = null;
+					}
+				} else {
+					resultsScreenStart = null;
 				}
 			}
 
