@@ -305,7 +305,11 @@ function connectToSwitch() {
 					if (resultsScreenStart === null) {
 						resultsScreenStart = Date.now();
 					} else if (Date.now() - resultsScreenStart > 60000) {
-						obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+						fetch('http://127.0.0.1:5000/update-bracket')
+						.then(response => {
+							obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+						})
+						.catch(error => console.error('Error:', error));
 						resultsScreenStart = null;
 					}
 				} else {
