@@ -1,5 +1,6 @@
 {
   "dependencies": {
+    "axios": "^1.6.2",
     "obs-websocket-js": "^5.0.3"
   }
 }

@@ -5,6 +5,7 @@ const OBSWebSocket = require('obs-websocket-js').default;
 const obs = new OBSWebSocket();
 const url = require('url');
 const { join } = require('path');
+const axios = require('axios');
 
 const SWITCH_IP = '192.168.69.178';
 const SWITCH_PORT = 4242;
@@ -65,6 +66,7 @@ function makeHttpRequest(url) {
 }
 
 tags = JSON.parse(fs.readFileSync('tags.json', 'utf8'));
+characters = JSON.parse(fs.readFileSync('characters.json', 'utf8'));
 
 var p1;
 var p2;
@@ -106,8 +108,8 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
-	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
+	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
+	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -236,6 +238,44 @@ function createTimestampsFile() {
 
 let resultsScreenStart = null;
 
+function updateChar(player) {
+	if (p1 != null && p2 != null && player.character != 0 && player.name != null) {
+		let data = {
+			"mains": {
+				"ssbu": [
+					[
+						characters[player.character],
+						player.skin
+					]
+				]
+			}
+		};
+		if(player.name.toLowerCase() === p1) {
+			if(player.skin == 0) { //workaround for bug lol
+				data["mains"]["ssbu"][0][1] = 1;
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+				data["mains"]["ssbu"][0][1] = 0;
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+			} else {
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+			}
+			console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
+		} else if (player.name.toLowerCase() === p2) {
+			if(player.skin == 0) { //workaround for bug lol
+				data["mains"]["ssbu"][0][1] = 1;
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
+				data["mains"]["ssbu"][0][1] = 0;
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
+			} else {
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
+			}
+			console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
+		} else {
+			console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
+		}
+	}
+}
+
 function connectToSwitch() {
 	const server = net.createConnection({ host: SWITCH_IP, port: SWITCH_PORT }, () => {
 		console.log('Connected to Switch');
@@ -260,6 +300,38 @@ function connectToSwitch() {
 				}
 			}
 
+			if (info.is_match && oldMatchInfo !== info.is_match) {
+				oldMatchInfo = info.is_match;
+				if(tshEnable) {
+					for (let i = 0; i < info.players.length; i++) {
+						updateChar(info.players[i]); // just in case two people on different sets play the same character 
+					}
+				}
+				if(obsConnected) {
+					obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+
+					if (currentSet != null && currentSet !== oldSet) {
+						obs.call('GetStreamStatus').then((response) => {
+							if(response.outputActive && timestampsFileName != undefined) {
+								let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+								fs.appendFile(timestampsFileName, timestamp, (err) => {
+									if (err) throw err;
+									console.log(timestamp);
+								});
+								
+							}
+						})
+						oldSet = currentSet;
+					}
+				}
+			} else if (!info.is_match && oldMatchInfo !== info.is_match) {
+				oldMatchInfo = info.is_match;
+				if(obsConnected) {
+					obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+				}
+			}
+
+
 			if (obsConnected) {
 				if (numChar !== numCharOld) {
 					if (numChar === 2) {
@@ -276,29 +348,6 @@ function connectToSwitch() {
 						});
 					}
 					numCharOld = numChar;
-				}
-
-				if (info.is_match && oldMatchInfo !== info.is_match) {
-					oldMatchInfo = info.is_match;
-					obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
-
-					if (obsConnected && currentSet != null && currentSet !== oldSet) {
-						obs.call('GetStreamStatus').then((response) => {
-							if(response.outputActive && timestampsFileName != undefined) {
-								let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
-								fs.appendFile(timestampsFileName, timestamp, (err) => {
-									if (err) throw err;
-									console.log(timestamp);
-								});
-								
-							}
-						})
-						oldSet = currentSet;
-					}
-
-				} else if (!info.is_match && oldMatchInfo !== info.is_match) {
-					oldMatchInfo = info.is_match;
-					obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
 				}
 
 				if (info.is_results_screen) {
@@ -376,6 +425,11 @@ function connectToSwitch() {
 
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
 						break;
+					}
+
+					if (oldPlayer.character !== currentPlayer.character || oldPlayer.skin !== currentPlayer.skin) {
+						updateChar(currentPlayer);
+						oldPlayers = JSON.parse(JSON.stringify(info.players));
 					}
 				}
 			}
