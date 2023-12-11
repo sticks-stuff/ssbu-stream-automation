@@ -108,8 +108,8 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
-	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
+	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
+	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -283,6 +283,9 @@ function connectToSwitch() {
 		let oldPlayers = null;
 		let oldMatchInfo = null;
 		let numCharOld = 0;
+		let isAutoBracketScene = false;
+		let previousInfo = null;
+
 
 		server.on('data', async (data) => {
 			var info;
@@ -353,17 +356,34 @@ function connectToSwitch() {
 				if (info.is_results_screen) {
 					if (resultsScreenStart === null) {
 						resultsScreenStart = Date.now();
-					} else if (Date.now() - resultsScreenStart > 60000) {
+					} else if (Date.now() - resultsScreenStart > 120000) {
 						fetch('http://127.0.0.1:5000/update-bracket')
 						.then(response => {
 							obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
 						})
 						.catch(error => console.error('Error:', error));
 						resultsScreenStart = null;
+						isAutoBracketScene = true;
 					}
 				} else {
 					resultsScreenStart = null;
 				}
+
+				if (isAutoBracketScene === true) {
+					let infoCopy = { ...info };
+					let previousInfoCopy = { ...previousInfo };
+				
+					delete infoCopy.playerX;
+					delete infoCopy.playerY;
+					delete previousInfoCopy.playerX;
+					delete previousInfoCopy.playerY; //player x and y pos is still updated on results screen
+				
+					if (JSON.stringify(infoCopy) !== JSON.stringify(previousInfoCopy)) {
+						obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+						isAutoBracketScene = false;
+					}
+				}
+				previousInfo = JSON.parse(JSON.stringify(info));
 			}
 
 
