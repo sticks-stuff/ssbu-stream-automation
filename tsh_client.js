@@ -251,24 +251,10 @@ function updateChar(player) {
 			}
 		};
 		if(player.name.toLowerCase() === p1) {
-			if(player.skin == 0) { //workaround for bug lol
-				data["mains"]["ssbu"][0][1] = 1;
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
-				data["mains"]["ssbu"][0][1] = 0;
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
-			} else {
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
-			}
+			axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
 			console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 		} else if (player.name.toLowerCase() === p2) {
-			if(player.skin == 0) { //workaround for bug lol
-				data["mains"]["ssbu"][0][1] = 1;
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
-				data["mains"]["ssbu"][0][1] = 0;
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
-			} else {
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
-			}
+			axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
 			console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 		} else {
 			console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
