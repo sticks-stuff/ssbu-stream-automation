@@ -6,6 +6,8 @@ const obs = new OBSWebSocket();
 const url = require('url');
 const { join } = require('path');
 const axios = require('axios');
+const WebSocket = require('ws');
+const wss = new WebSocket.Server({ port: 8080 });
 
 const SWITCH_IP = '192.168.69.178';
 const SWITCH_PORT = 4242;
@@ -17,7 +19,7 @@ const OBS_PASSWORD = 'gIrwKyVys5bACaMg';
 const GAME_SCENE = 'Game';
 const NOT_GAME_SCENE = 'Not-Game';
 const BRACKET_SCENE = 'Bracket';
-const OVERLAY_NAME = 'Overlay';
+const OVERLAY_NAME = 'Overlay Scene';
 
 function loadJsonFromUrl(url) {
 	return new Promise((resolve, reject) => {
@@ -262,6 +264,8 @@ function updateChar(player) {
 	}
 }
 
+var concat_data = '';
+
 function connectToSwitch() {
 	const server = net.createConnection({ host: SWITCH_IP, port: SWITCH_PORT }, () => {
 		console.log('Connected to Switch');
@@ -272,15 +276,27 @@ function connectToSwitch() {
 		let isAutoBracketScene = false;
 		let previousInfo = null;
 
-
 		server.on('data', async (data) => {
 			var info;
-			try {
-				info = JSON.parse(data.toString());
-			} catch (error) {
-				console.log('Could not parse JSON');
+
+			concat_data += data.toString();
+			if(data.toString().includes('\n')) {
+				try {
+					var info = JSON.parse(concat_data.toString());
+					concat_data = '';
+				} catch (error) {
+					console.log('Could not parse JSON');
+					return;
+				}
+			} else {
 				return;
 			}
+			// console.log(info)
+			wss.clients.forEach((ws) => {
+				if (ws.readyState === WebSocket.OPEN) {
+					ws.send(JSON.stringify(info));
+				}
+			});
 
 			let numChar = 0;
 			for (const player of info.players) {
