@@ -154,7 +154,7 @@ async function tshLoadSet(info) {
 
 		if (p1found !== false && p2found !== false) {
 			currentSet = set;
-			await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}`);
+			await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}&no-mains`);
 			var isSwapped = await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-get-swap');
 			console.log(isSwapped)
 			if (p1found > p2found) {
