@@ -17,9 +17,11 @@ const OBS_PORT = 4455;
 const OBS_PASSWORD = 'gIrwKyVys5bACaMg';
 
 const GAME_SCENE = 'Game';
+const GAME_SCENE_PLAYERCAMS = 'Game-PlayerCams';
 const NOT_GAME_SCENE = 'Not-Game';
+const NOT_GAME_COMS_SCENE = 'Not-Game-Coms';
 const BRACKET_SCENE = 'Bracket';
-const OVERLAY_NAME = 'Overlay Scene';
+const OVERLAY_NAME = 'Browser Overlay-Scene';
 
 function loadJsonFromUrl(url) {
 	return new Promise((resolve, reject) => {
@@ -264,6 +266,20 @@ function updateChar(player) {
 	}
 }
 
+async function isCommentary() {
+    let commentatorData = await loadJsonFromUrl('http://127.0.0.1:5000/get-comms');
+    let commentatorCount = 0;
+
+    for (let key in commentatorData) {
+        let commentator = commentatorData[key];
+        if (commentator.mergedName !== "" && commentator.mergedName !== undefined) {
+            commentatorCount++;
+        }
+    }
+
+    return commentatorCount !== 0;
+}
+
 var concat_data = '';
 
 function connectToSwitch() {
@@ -313,7 +329,17 @@ function connectToSwitch() {
 					}
 				}
 				if(obsConnected) {
-					obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+					if(tshEnable) {
+						isCommentary().then((hasCommentary) => {
+							if (hasCommentary) {
+								obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE_PLAYERCAMS });
+							} else {
+								obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+							}
+						});
+					} else {
+						obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+					}
 
 					if (currentSet != null && currentSet !== oldSet) {
 						obs.call('GetStreamStatus').then((response) => {
@@ -332,7 +358,17 @@ function connectToSwitch() {
 			} else if (!info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
 				if(obsConnected) {
-					obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+					if(tshEnable) {
+						isCommentary().then((hasCommentary) => {
+							if (hasCommentary) {
+								obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_COMS_SCENE });
+							} else {
+								obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+							}
+						});
+					} else {
+						obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+					}
 				}
 			}
 
@@ -381,7 +417,17 @@ function connectToSwitch() {
 					delete previousInfoCopy.playerY; //player x and y pos is still updated on results screen
 				
 					if (JSON.stringify(infoCopy) !== JSON.stringify(previousInfoCopy)) {
-						obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+						if(tshEnable) {
+							isCommentary().then((hasCommentary) => {
+								if (hasCommentary) {
+									obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_COMS_SCENE });
+								} else {
+									obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+								}
+							});
+						} else {
+							obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+						}
 						isAutoBracketScene = false;
 					}
 				}
