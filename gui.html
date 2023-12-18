@@ -1,5 +1,20 @@
 <head>
 </head>
+<style>
+	* {
+		font-size: 60px;
+	}
+</style>
+<body>
+	<button onclick="updateBracket()">UPDATE BRACKET</button>
+	<br>
+	<h1>PLEASE ADD YOURSELF AS A COMMENTATOR IF YOU ARE COMMENTATING</h1>
+	<h1>REMOVE YOURSELF ONCE YOU ARE DONE</h1>
+	<img src="assets/Screenshot_197.png" width="900">
+	<img src="assets/Screenshot_198.png" width="900">
+	<img src="assets/Screenshot_199.png" width="900">
+	<br>
+</body>
 <script src="node_modules/obs-websocket-js/dist/obs-ws.min.js"></script>
 <script>
 	const OBS_IP = 'localhost';
@@ -46,7 +61,7 @@
 					CAM_RIGHT_P2 = item.sceneItemId;
 				}
 			});
-			document.write("<button onclick='swap()'>SWAP PLAYER CAMS</button>");
+			document.getElementsByTagName("body")[0].innerHTML = "<button onclick='swap()'>SWAP PLAYER CAMS</button><br>" + document.getElementsByTagName("body")[0].innerHTML;
 			swap();
 		} catch (error) {
 			document.write(error);
@@ -101,5 +116,8 @@
 				'sceneItemEnabled': true
 			})
 		}
+	}
+	function updateBracket() {
+		fetch('http://127.0.0.1:5000/update-bracket')
 	}
 </script>
