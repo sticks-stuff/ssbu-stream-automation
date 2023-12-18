@@ -399,7 +399,9 @@ function connectToSwitch() {
 					} else if (Date.now() - resultsScreenStart > 120000) {
 						fetch('http://127.0.0.1:5000/update-bracket')
 						.then(response => {
-							obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+							if(isAutoBracketScene === false) {
+								obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+							}
 						})
 						.catch(error => console.error('Error:', error));
 						resultsScreenStart = null;
