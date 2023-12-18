@@ -1,0 +1,105 @@
+<head>
+</head>
+<script src="node_modules/obs-websocket-js/dist/obs-ws.min.js"></script>
+<script>
+	const OBS_IP = 'localhost';
+	const OBS_PORT = 4455;
+	const CAM_LEFT_GROUP = "Cam-left-group";
+	const CAM_RIGHT_GROUP = "Cam-right-group";
+	const CAM_P1 = "cam-p1";
+	const CAM_P2 = "cam-p2";
+	let CAM_LEFT_P1;
+	let CAM_LEFT_P2;
+	let CAM_RIGHT_P1;
+	let CAM_RIGHT_P2;
+	let OBS;
+
+	(async () => {
+		let response = await fetch("./env.json");
+		response = await response.json();
+		const OBS_PASSWORD = response.OBS_PASSWORD;
+		console.log(OBS_PASSWORD);
+		
+		try {
+			obs = new OBSWebSocket();
+			await obs.connect(`ws://${OBS_IP}:${OBS_PORT}`, OBS_PASSWORD);
+			console.log('Connected to OBS');
+			let response = await obs.call('GetGroupSceneItemList', {
+				'sceneName': CAM_LEFT_GROUP
+			})
+			response.sceneItems.forEach(item => {
+				if(item.sourceName == CAM_P1) {
+					CAM_LEFT_P1 = item.sceneItemId;
+				}
+				if(item.sourceName == CAM_P2) {
+					CAM_LEFT_P2 = item.sceneItemId;
+				}
+			});
+			response = await obs.call('GetGroupSceneItemList', {
+				'sceneName': CAM_RIGHT_GROUP
+			})
+			response.sceneItems.forEach(item => {
+				if(item.sourceName == "cam-p1") {
+					CAM_RIGHT_P1 = item.sceneItemId;
+				}
+				if(item.sourceName == "cam-p2") {
+					CAM_RIGHT_P2 = item.sceneItemId;
+				}
+			});
+			document.write("<button onclick='swap()'>SWAP PLAYER CAMS</button>");
+			swap();
+		} catch (error) {
+			document.write(error);
+		}
+	})();
+
+	async function swap() {
+		response = await obs.call('GetSceneItemEnabled', {
+			'sceneName': CAM_RIGHT_GROUP,
+			'sceneItemId': CAM_RIGHT_P1
+		})
+		if(response.sceneItemEnabled) {
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_RIGHT_GROUP,
+				'sceneItemId': CAM_RIGHT_P1,
+				'sceneItemEnabled': false
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_RIGHT_GROUP,
+				'sceneItemId': CAM_RIGHT_P2,
+				'sceneItemEnabled': true
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_LEFT_GROUP,
+				'sceneItemId': CAM_LEFT_P1,
+				'sceneItemEnabled': true
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_LEFT_GROUP,
+				'sceneItemId': CAM_LEFT_P2,
+				'sceneItemEnabled': false
+			})
+		} else {
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_RIGHT_GROUP,
+				'sceneItemId': CAM_RIGHT_P1,
+				'sceneItemEnabled': true
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_RIGHT_GROUP,
+				'sceneItemId': CAM_RIGHT_P2,
+				'sceneItemEnabled': false
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_LEFT_GROUP,
+				'sceneItemId': CAM_LEFT_P1,
+				'sceneItemEnabled': false
+			})
+			await obs.call('SetSceneItemEnabled', {
+				'sceneName': CAM_LEFT_GROUP,
+				'sceneItemId': CAM_LEFT_P2,
+				'sceneItemEnabled': true
+			})
+		}
+	}
+</script>
