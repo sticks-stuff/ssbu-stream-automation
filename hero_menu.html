@@ -17,8 +17,10 @@
 </head>
 <body>
     <canvas id="myCanvas" width="1920" height="1080"></canvas>
-    
+	<script src="node_modules/reconnecting-websocket/dist/reconnecting-websocket-iife.min.js"></script>
 	<script>
+		const ws = new ReconnectingWebSocket('ws://localhost:8080');
+
 		var selection_mask = new Image();
         selection_mask.src = "selection_mask.png";
 		var selector_mask = new Image();
@@ -29,8 +31,6 @@
 
 		//ctx.fillStyle = 'black';
 		//ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-		var ws = new WebSocket('ws://localhost:8080');
 
 		ws.onopen = function(event) {
 			console.log('Connection is open');
