@@ -9,12 +9,14 @@ const axios = require('axios');
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 8080 });
 
-const SWITCH_IP = '192.168.69.178';
+const ENV = JSON.parse(fs.readFileSync('env.json', 'utf8'));
+
+const SWITCH_IP = ENV.SWITCH_IP;
 const SWITCH_PORT = 4242;
 
 const OBS_IP = 'localhost';
 const OBS_PORT = 4455;
-const OBS_PASSWORD = 'gIrwKyVys5bACaMg';
+const OBS_PASSWORD = ENV.OBS_PASSWORD;
 
 const GAME_SCENE = 'Game';
 const GAME_SCENE_PLAYERCAMS = 'Game-PlayerCams';
