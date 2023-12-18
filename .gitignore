@@ -85,3 +85,4 @@ dist/
 
 # DynamoDB Local files
 .dynamodb/
+.vscode/

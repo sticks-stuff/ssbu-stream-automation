@@ -6,7 +6,7 @@
 	}
 </style>
 <body>
-	<button onclick="updateBracket()">UPDATE BRACKET</button>
+	<button id="update-bracket" onclick="updateBracket()">UPDATE BRACKET</button>
 	<br>
 	<h1>PLEASE ADD YOURSELF AS A COMMENTATOR IF YOU ARE COMMENTATING</h1>
 	<h1>REMOVE YOURSELF ONCE YOU ARE DONE</h1>
@@ -118,6 +118,9 @@
 		}
 	}
 	function updateBracket() {
-		fetch('http://127.0.0.1:5000/update-bracket')
+		document.getElementById("update-bracket").innerHTML = "UPDATING BRACKET...";
+		fetch('http://127.0.0.1:5000/update-bracket').then(response => {
+			document.getElementById("update-bracket").innerHTML = "UPDATE BRACKET";
+		})
 	}
 </script>
