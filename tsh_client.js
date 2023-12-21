@@ -114,8 +114,9 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
-	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
+	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
+	var foundSet = false;
+	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -156,7 +157,9 @@ async function tshLoadSet(info) {
 
 		if (p1found !== false && p2found !== false) {
 			currentSet = set;
+			foundSet = true;
 			await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}&no-mains`);
+			console.log(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}&no-mains`)
 			var isSwapped = await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-get-swap');
 			console.log(isSwapped)
 			if (p1found > p2found) {
@@ -189,6 +192,65 @@ async function tshLoadSet(info) {
 			break;
 		}
 	}
+
+	if(foundSet == false) {
+		console.log("here1")
+		let p1found = false;
+		let p2found = false;
+		await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-clear-all`);
+		for (let i = 0; i < players.length; i++) {
+			const player = players[i];
+	
+			if (!player.name) {
+				continue;
+			}
+
+			console.log(i + " " + player.name)
+	
+			let data = {
+				"gamerTag": player.name
+			};
+	
+			if(p1found == false) {
+				console.log("here2")
+				let response;
+				p1found = true;
+				p2 = player.name;
+				if(player.startggname != null) {
+					console.log("here3")
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
+					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
+				} else {
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
+					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
+				}
+				if(response == "ERROR") {
+					console.log("here4")
+					console.log(data)
+					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
+																										// UNLESS THEY'VE BEEN SWAPPED THIS WHOLE TIME AND I JUST DIDN'T NOTICE
+																										// I'M SO CONFUSED
+					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
+				}
+			} else {
+				let response;
+				p2found = true
+				p1 = player.name;
+				if(player.startggname != null) {
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
+				} else {
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
+				}
+				if(response == "ERROR") {
+					console.log("here4")
+					console.log(data)
+					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+				}
+			}
+		}
+	}
+
+	updateChars(players);
 
 	console.log(`Called at ${new Date()}\n ${JSON.stringify(players, null, 4)}`);
 }
@@ -244,26 +306,32 @@ function createTimestampsFile() {
 
 let resultsScreenStart = null;
 
-function updateChar(player) {
-	if (p1 != null && p2 != null && player.character != 0 && player.name != null) {
-		let data = {
-			"mains": {
-				"ssbu": [
-					[
-						characters[player.character],
-						player.skin
+function updateChars(players) {
+	console.log({p1})
+	console.log({p2})
+	for (let i = 0; i < players.length; i++) {
+		const player = players[i];
+		if (p1 != null && p2 != null && player.character != 0 && player.name != null) {
+			console.log("called uypdates cahgasras")
+			let data = {
+				"mains": {
+					"ssbu": [
+						[
+							characters[player.character],
+							player.skin
+						]
 					]
-				]
+				}
+			};
+			if(player.name.toLowerCase() === p1) {
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+				console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
+			} else if (player.name.toLowerCase() === p2) {
+				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
+				console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
+			} else {
+				console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
 			}
-		};
-		if(player.name.toLowerCase() === p1) {
-			axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
-			console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
-		} else if (player.name.toLowerCase() === p2) {
-			axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
-			console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
-		} else {
-			console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
 		}
 	}
 }
@@ -326,9 +394,7 @@ function connectToSwitch() {
 			if (info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
 				if(tshEnable) {
-					for (let i = 0; i < info.players.length; i++) {
-						updateChar(info.players[i]); // just in case two people on different sets play the same character 
-					}
+					updateChars(info.players); // just in case two people on different sets play the same character 
 				}
 				if(obsConnected) {
 					if(tshEnable) {
@@ -500,7 +566,7 @@ function connectToSwitch() {
 					}
 
 					if (oldPlayer.character !== currentPlayer.character || oldPlayer.skin !== currentPlayer.skin) {
-						updateChar(currentPlayer);
+						updateChars(info.players);
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
 					}
 				}
