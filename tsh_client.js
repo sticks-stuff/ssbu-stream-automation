@@ -141,6 +141,8 @@ async function tshLoadSet(info) {
 				continue;
 			}
 
+			player.uneditedName = player.uneditedName || player.name; // hack hack hack all day
+
 			player.name = player.name.toLowerCase();
 
 			if ((player.startggname === editedSet.p1_name || player.name === editedSet.p1_name) && player.character != 0) {
@@ -208,42 +210,33 @@ async function tshLoadSet(info) {
 			console.log(i + " " + player.name)
 	
 			let data = {
-				"gamerTag": player.name
+				"gamerTag": player.uneditedName
 			};
 	
 			if(p1found == false) {
-				console.log("here2")
 				let response;
 				p1found = true;
 				p2 = player.name;
-				if(player.startggname != null) {
-					console.log("here3")
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
-					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
-				} else {
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
-					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
-				}
-				if(response == "ERROR") {
-					console.log("here4")
-					console.log(data)
-					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
-																										// UNLESS THEY'VE BEEN SWAPPED THIS WHOLE TIME AND I JUST DIDN'T NOTICE
-																										// I'M SO CONFUSED
-					console.log(`curl -X POST -H "Content-Type: application/json" -d '${JSON.stringify(data)}' http://127.0.0.1:5000/scoreboard0-update-team-0-0 `)
-				}
-			} else {
-				let response;
-				p2found = true
-				p1 = player.name;
 				if(player.startggname != null) {
 					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
 				} else {
 					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
-					console.log("here4")
-					console.log(data)
+					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
+																										// UNLESS THEY'VE BEEN SWAPPED THIS WHOLE TIME AND I JUST DIDN'T NOTICE
+																										// I'M SO CONFUSED
+				}
+			} else {
+				let response;
+				p2found = true
+				p1 = player.name;
+				if(player.startggname != null) {
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
+				} else {
+					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
+				}
+				if(response == "ERROR") {
 					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
 				}
 			}
