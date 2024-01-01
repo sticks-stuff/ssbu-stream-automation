@@ -9,21 +9,7 @@ const axios = require('axios');
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 8080 });
 
-const ENV = JSON.parse(fs.readFileSync('env.json', 'utf8'));
-
-const SWITCH_IP = ENV.SWITCH_IP;
-const SWITCH_PORT = 4242;
-
-const OBS_IP = 'localhost';
-const OBS_PORT = 4455;
-const OBS_PASSWORD = ENV.OBS_PASSWORD;
-
-const GAME_SCENE = 'Game';
-const GAME_SCENE_PLAYERCAMS = 'Game-PlayerCams';
-const NOT_GAME_SCENE = 'Not-Game';
-const NOT_GAME_COMS_SCENE = 'Not-Game-Coms';
-const BRACKET_SCENE = 'Bracket';
-const OVERLAY_NAME = 'Browser Overlay-Scene';
+const ENV = JSON.parse(fs.readFileSync('../env.json', 'utf8'));
 
 function loadJsonFromUrl(url) {
 	return new Promise((resolve, reject) => {
@@ -261,13 +247,13 @@ let timestampsFileName;
 
 (async () => {
     try {
-        await obs.connect(`ws://${OBS_IP}:${OBS_PORT}`, OBS_PASSWORD);
+        await obs.connect(`ws://${ENV.OBS_IP}:${ENV.OBS_PORT}`, ENV.OBS_PASSWORD);
         console.log('Connected to OBS');
         obsConnected = true;
 
         obs.call('GetSceneItemId', {
-            'sceneName': GAME_SCENE,
-            'sourceName': OVERLAY_NAME,
+            'sceneName': ENV.GAME_SCENE,
+            'sourceName': ENV.OVERLAY_NAME,
         }).then((response) => {
             overlayId = response.sceneItemId;
         })
@@ -289,7 +275,7 @@ obs.on('StreamStateChanged', response => {
 
 function createTimestampsFile() {
 	const date = new Date();
-	timestampsFileName = `Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`;
+	timestampsFileName = `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`;
 
 	fs.writeFile(timestampsFileName, '', (err) => {
 		if (err) throw err;
@@ -346,7 +332,7 @@ async function isCommentary() {
 var concat_data = '';
 
 function connectToSwitch() {
-	const server = net.createConnection({ host: SWITCH_IP, port: SWITCH_PORT }, () => {
+	const server = net.createConnection({ host: ENV.SWITCH_IP, port: ENV.SWITCH_PORT }, () => {
 		console.log('Connected to Switch');
 
 		let oldPlayers = null;
@@ -393,13 +379,13 @@ function connectToSwitch() {
 					if(tshEnable) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE_PLAYERCAMS });
+								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.GAME_SCENE_PLAYERCAMS });
 							} else {
-								obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.GAME_SCENE });
 							}
 						});
 					} else {
-						obs.call('SetCurrentProgramScene', { 'sceneName': GAME_SCENE });
+						obs.call('SetCurrentProgramScene', { 'sceneName': ENV.GAME_SCENE });
 					}
 
 					if (currentSet != null && currentSet !== oldSet) {
@@ -422,13 +408,13 @@ function connectToSwitch() {
 					if(tshEnable) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_COMS_SCENE });
+								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_COMS_SCENE });
 							} else {
-								obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_SCENE });
 							}
 						});
 					} else {
-						obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+						obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_SCENE });
 					}
 				}
 			}
@@ -438,13 +424,13 @@ function connectToSwitch() {
 				if (numChar !== numCharOld) {
 					if (numChar === 2) {
 						obs.call('SetSceneItemEnabled', {
-							'sceneName': GAME_SCENE,
+							'sceneName': ENV.GAME_SCENE,
 							'sceneItemId': overlayId, 
 							'sceneItemEnabled': true ,
 						});
 					} else {
 						obs.call('SetSceneItemEnabled', {
-							'sceneName': GAME_SCENE,
+							'sceneName': ENV.GAME_SCENE,
 							'sceneItemId': overlayId, 
 							'sceneItemEnabled': false,
 						});
@@ -459,7 +445,7 @@ function connectToSwitch() {
 						fetch('http://127.0.0.1:5000/update-bracket')
 						.then(response => {
 							if(isAutoBracketScene === false) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': BRACKET_SCENE });
+								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.BRACKET_SCENE });
 							}
 						})
 						.catch(error => console.error('Error:', error));
@@ -483,13 +469,13 @@ function connectToSwitch() {
 						if(tshEnable) {
 							isCommentary().then((hasCommentary) => {
 								if (hasCommentary) {
-									obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_COMS_SCENE });
+									obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_COMS_SCENE });
 								} else {
-									obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+									obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_SCENE });
 								}
 							});
 						} else {
-							obs.call('SetCurrentProgramScene', { 'sceneName': NOT_GAME_SCENE });
+							obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_SCENE });
 						}
 						isAutoBracketScene = false;
 					}
