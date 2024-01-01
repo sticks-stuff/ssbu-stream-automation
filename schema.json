@@ -1,0 +1,29 @@
+{
+  "type": "array",
+  "title": "List of names",
+  "items": {
+    "type": "object",
+	"options": {
+		"collapsed": true
+	},
+	"title": "Name",
+    "headerTemplate": "{{ self.sggname }}",
+    "properties": {
+      "sggname": {
+        "type": "string",
+        "title": "start.gg name",
+        "required": true
+      },
+      "tags": {
+		"options": {
+			"collapsed": true
+		},
+		"type": "array",
+        "items": {
+          "type": "string",
+          "title": "tag"
+        }
+      }
+    }
+  }
+}

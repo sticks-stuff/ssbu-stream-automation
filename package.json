@@ -1,7 +1,10 @@
 {
   "dependencies": {
     "axios": "^1.6.2",
+    "jsoneditor": "^10.0.0",
+    "jsonform": "^2.2.5",
     "obs-websocket-js": "^5.0.3",
-    "reconnecting-websocket": "^4.4.0"
+    "reconnecting-websocket": "^4.4.0",
+    "vanilla-jsoneditor": "^0.21.1"
   }
 }
