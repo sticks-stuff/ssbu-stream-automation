@@ -8,8 +8,9 @@ const { join } = require('path');
 const axios = require('axios');
 const WebSocket = require('ws');
 const wss = new WebSocket.Server({ port: 8080 });
+const path = require("path");
 
-const ENV = JSON.parse(fs.readFileSync('../env.json', 'utf8'));
+const ENV = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../env.json'), 'utf8'));
 
 function loadJsonFromUrl(url) {
 	return new Promise((resolve, reject) => {
@@ -57,8 +58,8 @@ function makeHttpRequest(url) {
 	});
 }
 
-tags = JSON.parse(fs.readFileSync('tags.json', 'utf8'));
-characters = JSON.parse(fs.readFileSync('characters.json', 'utf8'));
+tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
+characters = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'characters.json'), 'utf8'));
 
 var p1;
 var p2;
@@ -100,9 +101,9 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	// const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets');
+	// const setData = await loadJsonFromUrl('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/get-sets');
 	var foundSet = false;
-	const setData = await loadJsonFromUrl('http://127.0.0.1:5000/get-sets?getFinished');
+	const setData = await loadJsonFromUrl('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -146,9 +147,9 @@ async function tshLoadSet(info) {
 		if (p1found !== false && p2found !== false) {
 			currentSet = set;
 			foundSet = true;
-			await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}&no-mains`);
-			console.log(`http://127.0.0.1:5000/scoreboard0-load-set?set=${set.id}&no-mains`)
-			var isSwapped = await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-get-swap');
+			await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-set?set=${set.id}&no-mains`);
+			console.log(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-set?set=${set.id}&no-mains`)
+			var isSwapped = await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-get-swap');
 			console.log(isSwapped)
 			if (p1found > p2found) {
 				p1 = players[p1found].name
@@ -156,14 +157,14 @@ async function tshLoadSet(info) {
 				p2 = players[p2found].name
 				console.log({ p1 })
 				if (isSwapped == "False") {
-					await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-swap-teams');
+					await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-swap-teams');
 				}
-				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team0-color-${PORT_COLORS[p1found]}`);
-				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team1-color-${PORT_COLORS[p2found]}`);
+				await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-team0-color-${PORT_COLORS[p1found]}`);
+				await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-team1-color-${PORT_COLORS[p2found]}`);
 				// console.log("waiting 3 seconds for flip")
 				// setTimeout(async () => {
 				// 	console.log("flipping!")
-				// 	await makeHttpRequest('http://127.0.0.1:5000/swap-teams');
+				// 	await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/swap-teams');
 				// }, 3000); // takes about 2 seconds to load the set
 			} else {
 				p1 = players[p2found].name
@@ -171,10 +172,10 @@ async function tshLoadSet(info) {
 				p2 = players[p1found].name
 				console.log({ p2 })
 				if (isSwapped == "True") {
-					await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-swap-teams');
+					await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-swap-teams');
 				}
-				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team1-color-${PORT_COLORS[p1found]}`);
-				await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-team0-color-${PORT_COLORS[p2found]}`);
+				await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-team1-color-${PORT_COLORS[p1found]}`);
+				await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-team0-color-${PORT_COLORS[p2found]}`);
 			}
 
 			break;
@@ -185,7 +186,7 @@ async function tshLoadSet(info) {
 		console.log("here1")
 		let p1found = false;
 		let p2found = false;
-		await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-clear-all`);
+		await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-clear-all`);
 		for (let i = 0; i < players.length; i++) {
 			const player = players[i];
 	
@@ -204,12 +205,12 @@ async function tshLoadSet(info) {
 				p1found = true;
 				p2 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
-					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
+					await axios.post('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
 																										// UNLESS THEY'VE BEEN SWAPPED THIS WHOLE TIME AND I JUST DIDN'T NOTICE
 																										// I'M SO CONFUSED
 				}
@@ -218,12 +219,12 @@ async function tshLoadSet(info) {
 				p2found = true
 				p1 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://127.0.0.1:5000/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${ENV.TSH_IP}:${ENV.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
-					await axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+					await axios.post('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 				}
 			}
 		}
@@ -234,12 +235,6 @@ async function tshLoadSet(info) {
 	console.log(`Called at ${new Date()}\n ${JSON.stringify(players, null, 4)}`);
 }
 
-var tshEnable = false;
-
-if (process.argv[2] == 'tsh-enable') {
-	console.log('TSH Enabled');
-	tshEnable = true;
-}
 var overlayId;
 
 let timestampsFileName;
@@ -277,7 +272,7 @@ obs.on('StreamStateChanged', response => {
 
 function createTimestampsFile() {
 	const date = new Date();
-	timestampsFileName = `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`;
+	timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
 
 	fs.writeFile(timestampsFileName, '', (err) => {
 		if (err) throw err;
@@ -305,10 +300,10 @@ function updateChars(players) {
 				}
 			};
 			if(player.name.toLowerCase() === p1) {
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-0-0', data);
+				axios.post('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 				console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 			} else if (player.name.toLowerCase() === p2) {
-				axios.post('http://127.0.0.1:5000/scoreboard0-update-team-1-0', data);
+				axios.post('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-update-team-1-0', data);
 				console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 			} else {
 				console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
@@ -318,7 +313,7 @@ function updateChars(players) {
 }
 
 async function isCommentary() {
-    let commentatorData = await loadJsonFromUrl('http://127.0.0.1:5000/get-comms');
+    let commentatorData = await loadJsonFromUrl('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/get-comms');
     let commentatorCount = 0;
 
     for (let key in commentatorData) {
@@ -375,11 +370,11 @@ function connectToSwitch() {
 
 			if (info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
-				if(tshEnable) {
+				if(webSocketInfo.tshConnected == 1) {
 					updateChars(info.players); // just in case two people on different sets play the same character 
 				}
 				if(webSocketInfo.obsConnected == 1) {
-					if(tshEnable) {
+					if(webSocketInfo.tshConnected == 1) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
 								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.GAME_SCENE_PLAYERCAMS });
@@ -408,7 +403,7 @@ function connectToSwitch() {
 			} else if (!info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
 				if(webSocketInfo.obsConnected == 1) {
-					if(tshEnable) {
+					if(webSocketInfo.tshConnected == 1) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
 								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_COMS_SCENE });
@@ -445,7 +440,7 @@ function connectToSwitch() {
 					if (resultsScreenStart === null) {
 						resultsScreenStart = Date.now();
 					} else if (Date.now() - resultsScreenStart > 120000) {
-						fetch('http://127.0.0.1:5000/update-bracket')
+						fetch('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/update-bracket')
 						.then(response => {
 							if(isAutoBracketScene === false) {
 								obs.call('SetCurrentProgramScene', { 'sceneName': ENV.BRACKET_SCENE });
@@ -469,7 +464,7 @@ function connectToSwitch() {
 					delete previousInfoCopy.playerY; //player x and y pos is still updated on results screen
 				
 					if (JSON.stringify(infoCopy) !== JSON.stringify(previousInfoCopy)) {
-						if(tshEnable) {
+						if(webSocketInfo.tshConnected == 1) {
 							isCommentary().then((hasCommentary) => {
 								if (hasCommentary) {
 									obs.call('SetCurrentProgramScene', { 'sceneName': ENV.NOT_GAME_COMS_SCENE });
@@ -487,7 +482,7 @@ function connectToSwitch() {
 			}
 
 
-			if (tshEnable) {
+			if (webSocketInfo.tshConnected == 1) {
 				if (oldPlayers === null) {
 					await tshLoadSet(info);
 					oldPlayers = JSON.parse(JSON.stringify(info.players));
@@ -532,10 +527,10 @@ function connectToSwitch() {
 								if(winningPlayer) {
 									if (winningPlayer.name.toLowerCase() == p1) {
 										console.log(`${p1} won at ${new Date()}`);
-										await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-team0-scoreup');
+										await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-team0-scoreup');
 									} else if(winningPlayer.name.toLowerCase() == p2) {
 										console.log(`${p2} won at ${new Date()}`);
-										await makeHttpRequest('http://127.0.0.1:5000/scoreboard0-team1-scoreup');
+										await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-team1-scoreup');
 									} else {
 										console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`)
 									}
@@ -569,10 +564,21 @@ function connectToSwitch() {
 	});
 }
 
-connectToSwitch();
+// connectToSwitch();
+
+async function TSHConnection() {
+	try {
+		await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-get-swap'); // just a low cost API request to see if its on
+		webSocketInfo.tshConnected = 1;
+	} catch (error) {
+		webSocketInfo.tshConnected = 0;
+		webSocketInfo.tshError = error;
+	}
+}
 
 var webSocketInfo = {}
 webSocketInfo.switchConnected = -1;
 webSocketInfo.switchError = "";
 webSocketInfo.obsConnected = -1;
-webSocketInfo.obsError = "";
+webSocketInfo.tshConnected = -1;
+webSocketInfo.tshError = "";
