@@ -242,14 +242,13 @@ if (process.argv[2] == 'tsh-enable') {
 }
 var overlayId;
 
-let obsConnected = false;
 let timestampsFileName;
 
-(async () => {
+async function connectToOBS() {
     try {
         await obs.connect(`ws://${ENV.OBS_IP}:${ENV.OBS_PORT}`, ENV.OBS_PASSWORD);
         console.log('Connected to OBS');
-        obsConnected = true;
+        webSocketInfo.obsConnected = 1;
 
         obs.call('GetSceneItemId', {
             'sceneName': ENV.GAME_SCENE,
@@ -262,10 +261,13 @@ let timestampsFileName;
 				createTimestampsFile();
 			}
 		})
+		
     } catch (error) {
-        console.log('Could not connect to OBS');
+        console.log('Could not connect to OBS' + error);
+		webSocketInfo.obsConnected = 0;
+		webSocketInfo.obsError = error;
     }
-})();
+};
 
 obs.on('StreamStateChanged', response => {
 	if(response.outputActive == true) {
@@ -334,6 +336,7 @@ var concat_data = '';
 function connectToSwitch() {
 	const server = net.createConnection({ host: ENV.SWITCH_IP, port: ENV.SWITCH_PORT }, () => {
 		console.log('Connected to Switch');
+		webSocketInfo.switchConnected = 1;
 
 		let oldPlayers = null;
 		let oldMatchInfo = null;
@@ -375,7 +378,7 @@ function connectToSwitch() {
 				if(tshEnable) {
 					updateChars(info.players); // just in case two people on different sets play the same character 
 				}
-				if(obsConnected) {
+				if(webSocketInfo.obsConnected == 1) {
 					if(tshEnable) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
@@ -404,7 +407,7 @@ function connectToSwitch() {
 				}
 			} else if (!info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
-				if(obsConnected) {
+				if(webSocketInfo.obsConnected == 1) {
 					if(tshEnable) {
 						isCommentary().then((hasCommentary) => {
 							if (hasCommentary) {
@@ -420,7 +423,7 @@ function connectToSwitch() {
 			}
 
 
-			if (obsConnected) {
+			if (webSocketInfo.obsConnected == 1) {
 				if (numChar !== numCharOld) {
 					if (numChar === 2) {
 						obs.call('SetSceneItemEnabled', {
@@ -556,13 +559,20 @@ function connectToSwitch() {
 		});
 	});
     server.on('end', () => {
-        console.log('Connection closed');
-        setTimeout(connectToSwitch, 60000);  // Try to reconnect after 60 seconds
+        console.log('Switch connection closed');
+        webSocketInfo.switchConnected = 0;
     });
 	server.on('error', (error) => {
-		console.log('Connection failed', error);
-		setTimeout(connectToSwitch, 60000);  // Try to reconnect after 60 seconds
+		console.log('Switch connection failed', error);
+		webSocketInfo.switchError = error;
+		webSocketInfo.switchConnected = 0;
 	});
 }
 
 connectToSwitch();
+
+var webSocketInfo = {}
+webSocketInfo.switchConnected = -1;
+webSocketInfo.switchError = "";
+webSocketInfo.obsConnected = -1;
+webSocketInfo.obsError = "";
