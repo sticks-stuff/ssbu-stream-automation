@@ -7,10 +7,90 @@ const url = require('url');
 const { join } = require('path');
 const axios = require('axios');
 const WebSocket = require('ws');
-const wss = new WebSocket.Server({ port: 8080 });
 const path = require("path");
 
-const ENV = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../env.json'), 'utf8'));
+const wss = new WebSocket.Server({ port: 8080 });
+
+var webSocketInfo = {}
+webSocketInfo.switchConnected = -1;
+webSocketInfo.switchError = "";
+webSocketInfo.switchInfo = {};
+webSocketInfo.obsConnected = -1;
+webSocketInfo.tshConnected = -1;
+webSocketInfo.tshError = "";
+
+var ENV = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../env.json'), 'utf8'));
+
+wss.on('connection', function connection(ws) {
+	ws.on('error', console.error);
+	
+	ws.on('message', function message(data) {
+		try {
+			const messageObj = JSON.parse(data);
+			let response;
+			switch (messageObj.command) {
+				case 'set_env':
+					try {
+						const jsonData = JSON.parse(messageObj.env);
+						ENV = jsonData;
+						fs.writeFileSync(path.resolve(__dirname, '../env.json'), JSON.stringify(jsonData, null, "\t"), 'utf8');
+						response = { status: 'success', message: 'env.json written successfully' };
+					} catch (e) {
+						response = { status: 'error', message: e };
+					}
+					break;
+				case 'connectToOBS':
+					try {
+						connectToOBS();
+						response = { status: 'success', message: 'connectToOBS success (maybe)' };
+					}
+					catch (e) {
+						response = { status: 'error', message: e };
+					}
+					break;
+				case 'connectToSwitch':
+					try {
+						connectToSwitch();
+						response = { status: 'success', message: 'connectToSwitch success (maybe)' };
+					}
+					catch (e) {
+						response = { status: 'error', message: e };
+					}
+					break;
+				case 'connectToTSH':
+					try {
+						connectToTSH();
+						response = { status: 'success', message: 'connectToTSH success (maybe)' };
+					}
+					catch (e) {
+						response = { status: 'error', message: e };
+					}
+					break;
+				case 'heartbeat':
+					response = { status: 'success', message: 'heartbeat' };
+					break;
+				default:
+					console.error('Unknown command:', messageObj.command);
+					response = { status: 'error', message: 'Unknown command' };
+			}
+			ws.send(JSON.stringify(response));
+		} catch (err) {
+			console.error('Invalid message received:', err);
+			ws.send(JSON.stringify({ status: 'error', message: 'Invalid message received' }));
+		}
+	});
+	
+	ws.send(JSON.stringify(webSocketInfo));
+});
+
+function updateGUI() {
+	wss.clients.forEach((ws) => {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.send(JSON.stringify(webSocketInfo));
+		}
+	});
+}
+
 
 function loadJsonFromUrl(url) {
 	return new Promise((resolve, reject) => {
@@ -244,6 +324,8 @@ async function connectToOBS() {
         await obs.connect(`ws://${ENV.OBS_IP}:${ENV.OBS_PORT}`, ENV.OBS_PASSWORD);
         console.log('Connected to OBS');
         webSocketInfo.obsConnected = 1;
+		webSocketInfo.obsError = "";
+		updateGUI();
 
         obs.call('GetSceneItemId', {
             'sceneName': ENV.GAME_SCENE,
@@ -261,6 +343,7 @@ async function connectToOBS() {
         console.log('Could not connect to OBS' + error);
 		webSocketInfo.obsConnected = 0;
 		webSocketInfo.obsError = error;
+		updateGUI();
     }
 };
 
@@ -332,6 +415,8 @@ function connectToSwitch() {
 	const server = net.createConnection({ host: ENV.SWITCH_IP, port: ENV.SWITCH_PORT }, () => {
 		console.log('Connected to Switch');
 		webSocketInfo.switchConnected = 1;
+		webSocketInfo.switchError = "";
+		updateGUI();
 
 		let oldPlayers = null;
 		let oldMatchInfo = null;
@@ -355,11 +440,6 @@ function connectToSwitch() {
 				return;
 			}
 			// console.log(info)
-			wss.clients.forEach((ws) => {
-				if (ws.readyState === WebSocket.OPEN) {
-					ws.send(JSON.stringify(info));
-				}
-			});
 
 			let numChar = 0;
 			for (const player of info.players) {
@@ -556,29 +636,27 @@ function connectToSwitch() {
     server.on('end', () => {
         console.log('Switch connection closed');
         webSocketInfo.switchConnected = 0;
+		updateGUI();
     });
 	server.on('error', (error) => {
 		console.log('Switch connection failed', error);
 		webSocketInfo.switchError = error;
 		webSocketInfo.switchConnected = 0;
+		updateGUI();
 	});
 }
 
 // connectToSwitch();
 
-async function TSHConnection() {
+async function connectToTSH() {
 	try {
 		await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/scoreboard0-get-swap'); // just a low cost API request to see if its on
 		webSocketInfo.tshConnected = 1;
+		webSocketInfo.tshError = "";
+		updateGUI();
 	} catch (error) {
 		webSocketInfo.tshConnected = 0;
 		webSocketInfo.tshError = error;
+		updateGUI();
 	}
 }
-
-var webSocketInfo = {}
-webSocketInfo.switchConnected = -1;
-webSocketInfo.switchError = "";
-webSocketInfo.obsConnected = -1;
-webSocketInfo.tshConnected = -1;
-webSocketInfo.tshError = "";

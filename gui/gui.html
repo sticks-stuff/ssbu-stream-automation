@@ -2,134 +2,62 @@
 <html lang="en">
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+	<link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" crossorigin="anonymous">
 </head>
 <style>
 	* {
 		font-size: 20px;
 	}
 	h1, button {
-		font-size: 60px;
+		/* font-size: 60px; */
+	}
+	#controls {
+		display: flex;
+		flex-direction: column;
 	}
 </style>
 <body>
-	<button id="update-bracket" onclick="updateBracket()">UPDATE BRACKET MANUALLY</button>
-	<br>
-	(the bracket should also update when the bracket scene is switched to)
-	<br>
-	<h1>PLEASE ADD YOURSELF AS A COMMENTATOR IF YOU ARE COMMENTATING</h1>
-	<h1>REMOVE YOURSELF ONCE YOU ARE DONE</h1>
-	<img src="assets/Screenshot_197.png" width="900">
-	<img src="assets/Screenshot_198.png" width="900">
-	<img src="assets/Screenshot_199.png" width="900">
-	<br>
+	<div id="controls">
+		<div id="switch">
+			<div>SWITCH</div>
+			<div id="switch-status" class="status status-unknown"></div>
+			<input id="switch-ip" class="ip-input" placeholder="IP"></input>
+			<input id="switch-port" class="port-input" placeholder="PORT"></input>
+			<button id="switch-connect">CONNECT</button>
+		</div>
+		<div id="tsh">
+			<div>TSH</div>
+			<div id="tsh-status" class="status status-unknown"></div>
+			<input id="tsh-ip" class="ip-input" placeholder="IP"></input>
+			<input id="tsh-port" class="port-input" placeholder="PORT"></input>
+			<button id="switch-connect">CONNECT</button>
+		</div>
+		<div id="obs">
+			<div>OBS</div>
+			<div id="obs-status" class="status status-unknown"></div>
+			<input id="obs-ip" class="ip-input" placeholder="IP"></input>
+			<input id="obs-port" class="port-input" placeholder="PORT"></input>
+			<input id="obs-password" class="password-input" placeholder="PASSWORD"></input>
+			<button id="switch-connect">CONNECT</button>
+		</div>
+	</div>
+
 </body>
-<script src="node_modules/obs-websocket-js/dist/obs-ws.min.js"></script>
+<script src="../node_modules/obs-websocket-js/dist/obs-ws.min.js"></script>
 <script>
-	const OBS_IP = 'localhost';
-	const OBS_PORT = 4455;
-	const CAM_LEFT_GROUP = "Cam-left-group";
-	const CAM_RIGHT_GROUP = "Cam-right-group";
-	const CAM_P1 = "cam-p1";
-	const CAM_P2 = "cam-p2";
-	let CAM_LEFT_P1;
-	let CAM_LEFT_P2;
-	let CAM_RIGHT_P1;
-	let CAM_RIGHT_P2;
-	let OBS;
-
 	(async () => {
-		let response = await fetch("./env.json");
-		response = await response.json();
-		const OBS_PASSWORD = response.OBS_PASSWORD;
-		console.log(OBS_PASSWORD);
-		
-		try {
-			obs = new OBSWebSocket();
-			await obs.connect(`ws://${OBS_IP}:${OBS_PORT}`, OBS_PASSWORD);
-			console.log('Connected to OBS');
-			let response = await obs.call('GetGroupSceneItemList', {
-				'sceneName': CAM_LEFT_GROUP
-			})
-			response.sceneItems.forEach(item => {
-				if(item.sourceName == CAM_P1) {
-					CAM_LEFT_P1 = item.sceneItemId;
-				}
-				if(item.sourceName == CAM_P2) {
-					CAM_LEFT_P2 = item.sceneItemId;
-				}
-			});
-			response = await obs.call('GetGroupSceneItemList', {
-				'sceneName': CAM_RIGHT_GROUP
-			})
-			response.sceneItems.forEach(item => {
-				if(item.sourceName == "cam-p1") {
-					CAM_RIGHT_P1 = item.sceneItemId;
-				}
-				if(item.sourceName == "cam-p2") {
-					CAM_RIGHT_P2 = item.sceneItemId;
-				}
-			});
-			document.getElementsByTagName("body")[0].innerHTML = "<button onclick='swap()'>SWAP PLAYER CAMS</button><br>" + document.getElementsByTagName("body")[0].innerHTML;
-			swap();
-		} catch (error) {
-			document.write(error);
-		}
-	})();
+		let env = await fetch("../env.json");
+		env = await env.json();
 
-	async function swap() {
-		response = await obs.call('GetSceneItemEnabled', {
-			'sceneName': CAM_RIGHT_GROUP,
-			'sceneItemId': CAM_RIGHT_P1
-		})
-		if(response.sceneItemEnabled) {
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_RIGHT_GROUP,
-				'sceneItemId': CAM_RIGHT_P1,
-				'sceneItemEnabled': false
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_RIGHT_GROUP,
-				'sceneItemId': CAM_RIGHT_P2,
-				'sceneItemEnabled': true
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_LEFT_GROUP,
-				'sceneItemId': CAM_LEFT_P1,
-				'sceneItemEnabled': true
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_LEFT_GROUP,
-				'sceneItemId': CAM_LEFT_P2,
-				'sceneItemEnabled': false
-			})
-		} else {
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_RIGHT_GROUP,
-				'sceneItemId': CAM_RIGHT_P1,
-				'sceneItemEnabled': true
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_RIGHT_GROUP,
-				'sceneItemId': CAM_RIGHT_P2,
-				'sceneItemEnabled': false
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_LEFT_GROUP,
-				'sceneItemId': CAM_LEFT_P1,
-				'sceneItemEnabled': false
-			})
-			await obs.call('SetSceneItemEnabled', {
-				'sceneName': CAM_LEFT_GROUP,
-				'sceneItemId': CAM_LEFT_P2,
-				'sceneItemEnabled': true
-			})
-		}
-	}
-	function updateBracket() {
-		document.getElementById("update-bracket").innerHTML = "UPDATING BRACKET...";
-		fetch('http://127.0.0.1:5000/update-bracket').then(response => {
-			document.getElementById("update-bracket").innerHTML = "UPDATE BRACKET";
-		})
-	}
+		document.getElementById('switch-ip').value = env.SWITCH_IP;
+		document.getElementById('switch-port').value = env.SWITCH_PORT;
+		document.getElementById('tsh-ip').value = env.TSH_IP;
+		document.getElementById('tsh-port').value = env.TSH_PORT;
+		document.getElementById('obs-ip').value = env.OBS_IP;
+		document.getElementById('obs-port').value = env.OBS_PORT;
+		document.getElementById('obs-password').value = env.OBS_PASSWORD;
+
+
+	})();
 </script>
