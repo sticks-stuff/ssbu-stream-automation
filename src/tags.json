@@ -1,81 +1,120 @@
-{
-	"Zingar":
-	[
-		"Z"
-	],
-	"AlastairBL":
-	[
-		"Roxas",
-		"TTPrincess"
-	],
-	"Smithereen":
-	[
-		"Smith"
-	],
-	"Big Red":
-	[
-		"Jode"
-	],
-	"LooseGoose":
-	[
-		"Goosey"
-	],
-	"BoBert":
-	[
-		"boobert"
-	],
-	"Taurii":
-	[
-		"LumaGambit",
-		"Albion",
-		"Taurii*"
-	],
-	"Phinn":
-	[
-		"finn"
-	],
-	"Lunchbillion":
-	[
-		"Brett"
-	],
-	"Widdershin":
-	[
-		"Nick"
-	],
-	"Dull_Bulb":
-	[
-		"BULB"
-	],
-	"dingdongkid":
-	[
-		"td"
-	],
-	"mojobones":
-	[
-		"bnuuy"
-	],
-	"Eggus":
-	[
-		" Egg Time"
-	],
-	"LunaFrost":
-	[
-		"★ Kaito ★"
-	],
-	"Sgt_Pepper":
-	[
-		"kronk"
-	],
-	"miss GayManWatch":
-	[
-		"miss"
-	],
-	"PhluxZy":
-	[
-		"ad"
-	],
-	"Smashworth":
-	[
-		"Fim"
-	]
-}
+[
+	{
+		"sggname": "Zingar",
+		"tags": [
+			"Z",
+			"Zingar"
+		]
+	},
+	{
+		"sggname": "AlastairBL",
+		"tags": [
+			"Roxas",
+			"TTPrincess"
+		]
+	},
+	{
+		"sggname": "Smithereen",
+		"tags": [
+			"Smith"
+		]
+	},
+	{
+		"sggname": "Big Red",
+		"tags": [
+			"Jode"
+		]
+	},
+	{
+		"sggname": "LooseGoose",
+		"tags": [
+			"Goosey"
+		]
+	},
+	{
+		"sggname": "BoBert",
+		"tags": [
+			"boobert"
+		]
+	},
+	{
+		"sggname": "Taurii",
+		"tags": [
+			"LumaGambit",
+			"Albion",
+			"Taurii*"
+		]
+	},
+	{
+		"sggname": "Phinn",
+		"tags": [
+			"finn"
+		]
+	},
+	{
+		"sggname": "Lunchbillion",
+		"tags": [
+			"Brett"
+		]
+	},
+	{
+		"sggname": "Widdershin",
+		"tags": [
+			"Nick"
+		]
+	},
+	{
+		"sggname": "Dull_Bulb",
+		"tags": [
+			"BULB"
+		]
+	},
+	{
+		"sggname": "dingdongkid",
+		"tags": [
+			"td"
+		]
+	},
+	{
+		"sggname": "mojobones",
+		"tags": [
+			"bnuuy"
+		]
+	},
+	{
+		"sggname": "Eggus",
+		"tags": [
+			" Egg Time"
+		]
+	},
+	{
+		"sggname": "LunaFrost",
+		"tags": [
+			"★ Kaito ★"
+		]
+	},
+	{
+		"sggname": "Sgt_Pepper",
+		"tags": [
+			"kronk"
+		]
+	},
+	{
+		"sggname": "miss GayManWatch",
+		"tags": [
+			"miss"
+		]
+	},
+	{
+		"sggname": "PhluxZy",
+		"tags": [
+			"ad"
+		]
+	},
+	{
+		"sggname": "Smashworth",
+		"tags": [
+			"Fim"
+		]
+	}
+]

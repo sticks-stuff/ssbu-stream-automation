@@ -15,16 +15,23 @@
 		.json-editor-btntype-deleteall {
 			display: none; 
 		}
+		.je-panel {
+			padding: 0;
+		}
+		h4 {
+			margin-bottom: 0;
+		}
 	</style>
 </head>
 
 <body>
 	<div id='editor_holder'></div>
+	<script src="gui.js"></script>
 	<script>
 		(async () => {
 			let schema = await fetch("schema.json");
 			schema = await schema.json();
-			let tags = await fetch("../src/tags.new.json");
+			let tags = await fetch("../src/tags.json");
 			tags = await tags.json();
 			const element = document.getElementById('editor_holder');
 			const editor = new JSONEditor(element, {
@@ -41,6 +48,29 @@
 			editor.on('ready',() => {
 				editor.setValue(tags);
 				editor.validate();
+			});
+			editor.on('change',() => {
+				const errors = editor.validate();
+				if (errors.length) {
+					document.write("Something real bad happened!: \n" + errors);
+				}
+				else {
+					if(JSON.stringify(editor.getValue()) != JSON.stringify(tags)) {
+						console.log('Sending new tags:', editor.getValue());
+						socket.send(JSON.stringify({ command: 'set_tags', tags: JSON.stringify(editor.getValue()) }));
+						tags = editor.getValue();
+					}
+				}
+			});
+			// listen for tag success
+			socket.addEventListener('message', function (event) {
+				console.log('Message from server: ', event.data);
+				const data = JSON.parse(event.data);
+				if (data.status === 'success' && data.message === 'tags.json written successfully') {
+					console.log('Tags updated successfully');
+				} else if (data.status === 'error') {
+					console.error('Error updating tags: ', data.message);
+				}
 			});
 		})();
 	</script>

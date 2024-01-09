@@ -9,7 +9,7 @@ const axios = require('axios');
 const WebSocket = require('ws');
 const path = require("path");
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 9310 });
 
 var webSocketInfo = {}
 webSocketInfo.switchConnected = -1;
@@ -35,6 +35,17 @@ wss.on('connection', function connection(ws) {
 						ENV = jsonData;
 						fs.writeFileSync(path.resolve(__dirname, '../env.json'), JSON.stringify(jsonData, null, "\t"), 'utf8');
 						response = { status: 'success', message: 'env.json written successfully' };
+					} catch (e) {
+						response = { status: 'error', message: e };
+					}
+					break;
+				case 'set_tags':
+					try {
+						console.log(messageObj)
+						const jsonData = JSON.parse(messageObj.tags);
+						tags = jsonData;
+						fs.writeFileSync(path.resolve(__dirname, './tags.json'), JSON.stringify(jsonData, null, "\t"), 'utf8');
+						response = { status: 'success', message: 'tags.json written successfully' };
 					} catch (e) {
 						response = { status: 'error', message: e };
 					}
@@ -171,11 +182,10 @@ async function tshLoadSet(info) {
 	// }
 
 	for (let player of players) {
-		for (let [tag, names] of Object.entries(tags)) {
-			// console.log(tag)
-			if (names.includes(player.name)) {
+		for (let tagInfo of tags) {
+			if (tagInfo.tags.includes(player.name)) {
 				// matchedTag = tag;
-				player.startggname = tag.toLowerCase();
+				player.startggname = tagInfo.sggname.toLowerCase();
 				break;
 			}
 		}
