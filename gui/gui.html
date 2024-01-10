@@ -85,6 +85,16 @@
 			<button id="obs-connect">CONNECT</button>
 		</div>
 		<div id="obs-error" class="hidden"></div>
+		<br>
+		<div id="scenes">
+			<div class="status-title">SCENES</div>
+			<input id="game-scene" class="scene-input" placeholder="GAME_SCENE"></input>
+			<input id="game-scene-playercams" class="scene-input" placeholder="GAME_SCENE_PLAYERCAMS"></input>
+			<input id="not-game-scene" class="scene-input" placeholder="NOT_GAME_SCENE"></input>
+			<input id="not-game-coms-scene" class="scene-input" placeholder="NOT_GAME_COMS_SCENE"></input>
+			<input id="bracket-scene" class="scene-input" placeholder="BRACKET_SCENE"></input>
+			<input id="overlay-name" class="scene-input" placeholder="OVERLAY_NAME"></input>
+		</div>
 	</div>
 
 </body>
@@ -102,6 +112,12 @@
 		document.getElementById('obs-ip').value = env.OBS_IP;
 		document.getElementById('obs-port').value = env.OBS_PORT;
 		document.getElementById('obs-password').value = env.OBS_PASSWORD;
+		document.getElementById('game-scene').value = env.GAME_SCENE;
+		document.getElementById('game-scene-playercams').value = env.GAME_SCENE_PLAYERCAMS;
+		document.getElementById('not-game-scene').value = env.NOT_GAME_SCENE;
+		document.getElementById('not-game-coms-scene').value = env.NOT_GAME_COMS_SCENE;
+		document.getElementById('bracket-scene').value = env.BRACKET_SCENE;
+		document.getElementById('overlay-name').value = env.OVERLAY_NAME;
 		document.getElementById('switch-ip').addEventListener('change', function() {
 			env.SWITCH_IP = this.value;
 		});
@@ -138,6 +154,36 @@
 
 		document.getElementById('obs-password').addEventListener('change', function() {
 			env.OBS_PASSWORD = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('game-scene').addEventListener('change', function() {
+			env.GAME_SCENE = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('game-scene-playercams').addEventListener('change', function() {
+			env.GAME_SCENE_PLAYERCAMS = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('not-game-scene').addEventListener('change', function() {
+			env.NOT_GAME_SCENE = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('not-game-coms-scene').addEventListener('change', function() {
+			env.NOT_GAME_COMS_SCENE = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('bracket-scene').addEventListener('change', function() {
+			env.BRACKET_SCENE = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('overlay-name').addEventListener('change', function() {
+			env.OVERLAY_NAME = this.value;
 			updateEnv();
 		});
 
@@ -194,7 +240,7 @@
 				errorElement.classList.add('hidden');
 			}
 		}
-		
+
 		function updateEnv() {
 			const message = {
 				command: 'set_env',
