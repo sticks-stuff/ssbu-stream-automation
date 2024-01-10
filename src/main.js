@@ -97,14 +97,14 @@ wss.on('connection', function connection(ws) {
 		}
 	});
 	
-	ws.send(JSON.stringify(webSocketInfo));
+	ws.send(JSON.stringify({ status: 'update', message: webSocketInfo }));
 });
 
 function updateGUI() {
 	console.log(webSocketInfo)
 	wss.clients.forEach((ws) => {
 		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(JSON.stringify(webSocketInfo));
+			ws.send(JSON.stringify({ status: 'update', message: webSocketInfo }));
 		}
 	});
 }

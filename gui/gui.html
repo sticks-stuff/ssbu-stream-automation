@@ -9,6 +9,9 @@
 	* {
 		font-size: 20px;
 	}
+	.hidden {
+		display: none !important;
+	}
 	body {
 		margin: 1vw;
 	}
@@ -53,6 +56,7 @@
 		width: 20%;
 		flex: 1;
 	}
+	
 </style>
 <body>
 	<div id="controls">
@@ -63,6 +67,7 @@
 			<input id="switch-port" class="port-input" placeholder="PORT"></input>
 			<button id="switch-connect">CONNECT</button>
 		</div>
+		<div id="switch-error" class="hidden"></div>
 		<div id="tsh">
 			<div class="status-title">TSH</div>
 			<div id="tsh-status" class="status status-unknown"></div>
@@ -70,6 +75,7 @@
 			<input id="tsh-port" class="port-input" placeholder="PORT"></input>
 			<button id="tsh-connect">CONNECT</button>
 		</div>
+		<div id="tsh-error" class="hidden"></div>
 		<div id="obs">
 			<div class="status-title">OBS</div>
 			<div id="obs-status" class="status status-unknown"></div>
@@ -78,6 +84,7 @@
 			<input id="obs-password" class="password-input" placeholder="PASSWORD"></input>
 			<button id="obs-connect">CONNECT</button>
 		</div>
+		<div id="obs-error" class="hidden"></div>
 	</div>
 
 </body>
@@ -95,32 +102,58 @@
 		document.getElementById('obs-ip').value = env.OBS_IP;
 		document.getElementById('obs-port').value = env.OBS_PORT;
 		document.getElementById('obs-password').value = env.OBS_PASSWORD;
+		document.getElementById('switch-ip').addEventListener('change', function() {
+			env.SWITCH_IP = this.value;
+		});
+
+		document.getElementById('switch-ip').addEventListener('change', function() {
+			env.SWITCH_IP = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('switch-port').addEventListener('change', function() {
+			env.SWITCH_PORT = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('tsh-ip').addEventListener('change', function() {
+			env.TSH_IP = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('tsh-port').addEventListener('change', function() {
+			env.TSH_PORT = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('obs-ip').addEventListener('change', function() {
+			env.OBS_IP = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('obs-port').addEventListener('change', function() {
+			env.OBS_PORT = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('obs-password').addEventListener('change', function() {
+			env.OBS_PASSWORD = this.value;
+			updateEnv();
+		});
 
 		await connectWebSocket();
-
-		document.getElementById('switch-connect').addEventListener('click', function() {
-			sendCommand('connectToSwitch');
-		});
-
-		document.getElementById('tsh-connect').addEventListener('click', function() {
-			sendCommand('connectToTSH');
-		});
-
-		document.getElementById('obs-connect').addEventListener('click', function() {
-			sendCommand('connectToOBS');
-		});
 
 		socket.addEventListener('message', function (event) {
 			console.log('Message from server: ', event.data);
 			const data = JSON.parse(event.data);
-			if (data.switchConnected !== undefined) {
-				updateStatus('switch-status', data.switchConnected);
-			}
-			if (data.obsConnected !== undefined) {
-				updateStatus('obs-status', data.obsConnected);
-			}
-			if (data.tshConnected !== undefined) {
-				updateStatus('tsh-status', data.tshConnected);
+			if(data.status == "update") {
+				var status = data.message;
+				updateStatus('switch-status', status.switchConnected);
+				updateStatus('obs-status', status.obsConnected);
+				updateStatus('tsh-status', status.tshConnected);
+				updateError('switch-error', status.switchError);
+				updateError('obs-error', status.obsError);
+				updateError('tsh-error', status.tshError);
 			}
 		});
 		
@@ -149,6 +182,25 @@
 					console.error('Unknown status: ', status);
 					break;
 			}
+		}
+
+		function updateError(id, error) {
+			const errorElement = document.getElementById(id);
+			errorElement.textContent = JSON.stringify(error);
+			console.log(error)
+			if (errorElement.textContent != '""') {
+				errorElement.classList.remove('hidden');
+			} else {
+				errorElement.classList.add('hidden');
+			}
+		}
+		
+		function updateEnv() {
+			const message = {
+				command: 'set_env',
+				env: JSON.stringify(env)
+			};
+			socket.send(JSON.stringify(message));
 		}
 	})();
 </script>
