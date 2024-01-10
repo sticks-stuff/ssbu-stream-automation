@@ -4,13 +4,16 @@
     "axios": "^1.6.2",
     "concurrently": "^8.2.2",
     "obs-websocket-js": "^5.0.3",
-    "reconnecting-websocket": "^4.4.0"
+    "reconnecting-websocket": "^4.4.0",
+    "serialize-error": "^11.0.3"
   },
   "nodemonConfig": {
     "ignore": [
       "*.json"
     ]
   },
+  "type": "module",
+  "exports": "./src/index.js",
   "scripts": {
     "dev": "concurrently --kill-others \"http-server -p 3911 -c-1\" \"nodemon src/main.js -e js\""
   }

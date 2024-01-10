@@ -1,13 +1,17 @@
-const http = require('http');
-const fs = require('fs');
-const net = require('net');
-const OBSWebSocket = require('obs-websocket-js').default;
+import http from "http";
+import fs from "fs";
+import net from "net";
+import { default as OBSWebSocket } from "obs-websocket-js";
 const obs = new OBSWebSocket();
-const url = require('url');
-const { join } = require('path');
-const axios = require('axios');
-const WebSocket = require('ws');
-const path = require("path");
+import url from "url";
+import axios from "axios";
+import WebSocket from "ws";
+import { fileURLToPath } from 'url';
+import path from 'path';
+import {serializeError, deserializeError} from 'serialize-error';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const wss = new WebSocket.Server({ port: 9310 });
 
@@ -20,6 +24,8 @@ webSocketInfo.tshConnected = -1;
 webSocketInfo.tshError = "";
 
 var ENV = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../env.json'), 'utf8'));
+var tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
+var characters = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'characters.json'), 'utf8'));
 
 wss.on('connection', function connection(ws) {
 	ws.on('error', console.error);
@@ -36,7 +42,7 @@ wss.on('connection', function connection(ws) {
 						fs.writeFileSync(path.resolve(__dirname, '../env.json'), JSON.stringify(jsonData, null, "\t"), 'utf8');
 						response = { status: 'success', message: 'env.json written successfully' };
 					} catch (e) {
-						response = { status: 'error', message: e };
+						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
 				case 'set_tags':
@@ -47,34 +53,34 @@ wss.on('connection', function connection(ws) {
 						fs.writeFileSync(path.resolve(__dirname, './tags.json'), JSON.stringify(jsonData, null, "\t"), 'utf8');
 						response = { status: 'success', message: 'tags.json written successfully' };
 					} catch (e) {
-						response = { status: 'error', message: e };
+						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
 				case 'connectToOBS':
 					try {
 						connectToOBS();
-						response = { status: 'success', message: 'connectToOBS success (maybe)' };
+						response = { status: 'success', message: 'received connectToOBS' };
 					}
 					catch (e) {
-						response = { status: 'error', message: e };
+						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
 				case 'connectToSwitch':
 					try {
 						connectToSwitch();
-						response = { status: 'success', message: 'connectToSwitch success (maybe)' };
+						response = { status: 'success', message: 'received connectToSwitch' };
 					}
 					catch (e) {
-						response = { status: 'error', message: e };
+						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
 				case 'connectToTSH':
 					try {
 						connectToTSH();
-						response = { status: 'success', message: 'connectToTSH success (maybe)' };
+						response = { status: 'success', message: 'received connectToTSH' };
 					}
 					catch (e) {
-						response = { status: 'error', message: e };
+						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
 				case 'heartbeat':
@@ -95,6 +101,7 @@ wss.on('connection', function connection(ws) {
 });
 
 function updateGUI() {
+	console.log(webSocketInfo)
 	wss.clients.forEach((ws) => {
 		if (ws.readyState === WebSocket.OPEN) {
 			ws.send(JSON.stringify(webSocketInfo));
@@ -148,9 +155,6 @@ function makeHttpRequest(url) {
 		});
 	});
 }
-
-tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
-characters = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'characters.json'), 'utf8'));
 
 var p1;
 var p2;
@@ -332,27 +336,25 @@ let timestampsFileName;
 async function connectToOBS() {
     try {
         await obs.connect(`ws://${ENV.OBS_IP}:${ENV.OBS_PORT}`, ENV.OBS_PASSWORD);
-        console.log('Connected to OBS');
-        webSocketInfo.obsConnected = 1;
-		webSocketInfo.obsError = "";
-		updateGUI();
-
-        obs.call('GetSceneItemId', {
-            'sceneName': ENV.GAME_SCENE,
-            'sourceName': ENV.OVERLAY_NAME,
-        }).then((response) => {
-            overlayId = response.sceneItemId;
-        })
-		obs.call('GetStreamStatus').then((response) => {
+		await obs.call('GetSceneItemId', {
+			'sceneName': ENV.GAME_SCENE,
+			'sourceName': ENV.OVERLAY_NAME,
+		}).then((response) => {
+			overlayId = response.sceneItemId;
+		})
+		await obs.call('GetStreamStatus').then((response) => {
 			if(response.outputActive) {
 				createTimestampsFile();
 			}
 		})
-		
+		console.log('Connected to OBS');
+		webSocketInfo.obsConnected = 1;
+		webSocketInfo.obsError = "";
+		updateGUI();	
     } catch (error) {
         console.log('Could not connect to OBS' + error);
 		webSocketInfo.obsConnected = 0;
-		webSocketInfo.obsError = error;
+		webSocketInfo.obsError = serializeError(error);
 		updateGUI();
     }
 };
@@ -650,7 +652,7 @@ function connectToSwitch() {
     });
 	server.on('error', (error) => {
 		console.log('Switch connection failed', error);
-		webSocketInfo.switchError = error;
+		webSocketInfo.switchError = serializeError(error);
 		webSocketInfo.switchConnected = 0;
 		updateGUI();
 	});
@@ -666,7 +668,7 @@ async function connectToTSH() {
 		updateGUI();
 	} catch (error) {
 		webSocketInfo.tshConnected = 0;
-		webSocketInfo.tshError = error;
+		webSocketInfo.tshError = serializeError(error);
 		updateGUI();
 	}
 }

@@ -9,42 +9,80 @@
 	* {
 		font-size: 20px;
 	}
+	body {
+		margin: 1vw;
+	}
 	h1, button {
 		/* font-size: 60px; */
 	}
 	#controls {
 		display: flex;
 		flex-direction: column;
+		gap: 1vh;
+	}
+	.status {
+		aspect-ratio: 1 / 1 ;
+		min-width: 5%;
+		margin-left: 1%;
+		margin-right: 1%;
+	}
+	.status-title {
+		min-width: 10%;
+		display: flex;
+		align-items: center;
+	}
+
+	.status-unknown {
+		background-color: #ffc400;
+	}
+
+	.status-connected {
+		background-color: #00ff00;
+	}
+
+	.status-disconnected {
+		background-color: #ff0000;
+	}
+
+	#controls > div {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: space-between;
+	}
+	#controls > div > input {
+		width: 20%;
+		flex: 1;
 	}
 </style>
 <body>
 	<div id="controls">
 		<div id="switch">
-			<div>SWITCH</div>
+			<div class="status-title">SWITCH</div>
 			<div id="switch-status" class="status status-unknown"></div>
 			<input id="switch-ip" class="ip-input" placeholder="IP"></input>
 			<input id="switch-port" class="port-input" placeholder="PORT"></input>
 			<button id="switch-connect">CONNECT</button>
 		</div>
 		<div id="tsh">
-			<div>TSH</div>
+			<div class="status-title">TSH</div>
 			<div id="tsh-status" class="status status-unknown"></div>
 			<input id="tsh-ip" class="ip-input" placeholder="IP"></input>
 			<input id="tsh-port" class="port-input" placeholder="PORT"></input>
-			<button id="switch-connect">CONNECT</button>
+			<button id="tsh-connect">CONNECT</button>
 		</div>
 		<div id="obs">
-			<div>OBS</div>
+			<div class="status-title">OBS</div>
 			<div id="obs-status" class="status status-unknown"></div>
 			<input id="obs-ip" class="ip-input" placeholder="IP"></input>
 			<input id="obs-port" class="port-input" placeholder="PORT"></input>
 			<input id="obs-password" class="password-input" placeholder="PASSWORD"></input>
-			<button id="switch-connect">CONNECT</button>
+			<button id="obs-connect">CONNECT</button>
 		</div>
 	</div>
 
 </body>
 <script src="../node_modules/obs-websocket-js/dist/obs-ws.min.js"></script>
+<script src="gui.js"></script>
 <script>
 	(async () => {
 		let env = await fetch("../env.json");
@@ -58,6 +96,59 @@
 		document.getElementById('obs-port').value = env.OBS_PORT;
 		document.getElementById('obs-password').value = env.OBS_PASSWORD;
 
+		await connectWebSocket();
 
+		document.getElementById('switch-connect').addEventListener('click', function() {
+			sendCommand('connectToSwitch');
+		});
+
+		document.getElementById('tsh-connect').addEventListener('click', function() {
+			sendCommand('connectToTSH');
+		});
+
+		document.getElementById('obs-connect').addEventListener('click', function() {
+			sendCommand('connectToOBS');
+		});
+
+		socket.addEventListener('message', function (event) {
+			console.log('Message from server: ', event.data);
+			const data = JSON.parse(event.data);
+			if (data.switchConnected !== undefined) {
+				updateStatus('switch-status', data.switchConnected);
+			}
+			if (data.obsConnected !== undefined) {
+				updateStatus('obs-status', data.obsConnected);
+			}
+			if (data.tshConnected !== undefined) {
+				updateStatus('tsh-status', data.tshConnected);
+			}
+		});
+		
+		function sendCommand(command) {
+			const message = {
+				command: command
+			};
+			socket.send(JSON.stringify(message));
+		}
+
+		function updateStatus(id, status) {
+			const statusElement = document.getElementById(id);
+			statusElement.classList.remove('status-unknown', 'status-connected', 'status-disconnected');
+
+			switch (status) {
+				case -1:
+					statusElement.classList.add('status-unknown');
+					break;
+				case 0:
+					statusElement.classList.add('status-disconnected');
+					break;
+				case 1:
+					statusElement.classList.add('status-connected');
+					break;
+				default:
+					console.error('Unknown status: ', status);
+					break;
+			}
+		}
 	})();
 </script>
