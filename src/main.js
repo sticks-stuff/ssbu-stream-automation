@@ -22,6 +22,7 @@ webSocketInfo.switchInfo = {};
 webSocketInfo.obsConnected = -1;
 webSocketInfo.tshConnected = -1;
 webSocketInfo.tshError = "";
+webSocketInfo.tshInfo = {};
 
 var CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../config.json'), 'utf8'));
 var tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
@@ -60,6 +61,7 @@ wss.on('connection', function connection(ws) {
 					try {
 						connectToOBS();
 						response = { status: 'success', message: 'received connectToOBS' };
+						webSocketInfo.obsError = "";
 					}
 					catch (e) {
 						response = { status: 'error', message: serializeError(e) };
@@ -68,6 +70,7 @@ wss.on('connection', function connection(ws) {
 				case 'connectToSwitch':
 					try {
 						connectToSwitch();
+						webSocketInfo.switchError = "";
 						response = { status: 'success', message: 'received connectToSwitch' };
 					}
 					catch (e) {
@@ -77,6 +80,7 @@ wss.on('connection', function connection(ws) {
 				case 'connectToTSH':
 					try {
 						connectToTSH();
+						webSocketInfo.tshError = "";
 						response = { status: 'success', message: 'received connectToTSH' };
 					}
 					catch (e) {
@@ -101,7 +105,7 @@ wss.on('connection', function connection(ws) {
 });
 
 function updateGUI() {
-	console.log(webSocketInfo)
+	// console.log(webSocketInfo)
 	wss.clients.forEach((ws) => {
 		if (ws.readyState === WebSocket.OPEN) {
 			ws.send(JSON.stringify({ status: 'update', message: webSocketInfo }));
@@ -304,9 +308,8 @@ async function tshLoadSet(info) {
 					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
-					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);		// i am beyond confused why p2 and p1 are swapped SEEMINGLY ONLY HERE??
-																										// UNLESS THEY'VE BEEN SWAPPED THIS WHOLE TIME AND I JUST DIDN'T NOTICE
-																										// I'M SO CONFUSED
+					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
+					player.nameInDB = false;
 				}
 			} else {
 				let response;
@@ -319,6 +322,7 @@ async function tshLoadSet(info) {
 				}
 				if(response == "ERROR") {
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
+					player.nameInDB = false;
 				}
 			}
 		}
@@ -327,6 +331,9 @@ async function tshLoadSet(info) {
 	updateChars(players);
 
 	console.log(`Called at ${new Date()}\n ${JSON.stringify(players, null, 4)}`);
+	webSocketInfo.tshInfo.players = players;
+	webSocketInfo.tshInfo.foundSet = foundSet;
+	updateGUI();
 }
 
 var overlayId;
@@ -461,6 +468,7 @@ function connectToSwitch() {
 			}
 			
 			webSocketInfo.switchInfo = info;
+			updateGUI();
 
 			let numChar = 0;
 			for (const player of info.players) {

@@ -86,22 +86,6 @@
 		</div>
 		<div id="obs-error" class="hidden"></div>
 		<br>
-		<div id="scenes">
-			<div class="status-title">SCENES</div>
-			<input id="game-scene" class="scene-input" placeholder="GAME_SCENE"></input>
-			<input id="game-scene-playercams" class="scene-input" placeholder="GAME_SCENE_PLAYERCAMS"></input>
-			<input id="not-game-scene" class="scene-input" placeholder="NOT_GAME_SCENE"></input>
-			<input id="not-game-coms-scene" class="scene-input" placeholder="NOT_GAME_COMS_SCENE"></input>
-			<input id="bracket-scene" class="scene-input" placeholder="BRACKET_SCENE"></input>
-			<input id="overlay-name" class="scene-input" placeholder="OVERLAY_NAME"></input>
-		</div>
-		<div id="overlay-and-cams">
-			<div class="status-title">OVERLAY AND CAMS</div>
-			<input id="cam-left-group" class="input-field" placeholder="CAM_LEFT_GROUP"></input>
-			<input id="cam-right-group" class="input-field" placeholder="CAM_RIGHT_GROUP"></input>
-			<input id="cam-p1" class="input-field" placeholder="CAM_P1"></input>
-			<input id="cam-p2" class="input-field" placeholder="CAM_P2"></input>
-		</div>
 	</div>
 	<button id="update-bracket" onclick="updateBracket()">UPDATE BRACKET</button>
 	<br>
@@ -127,16 +111,6 @@
 		document.getElementById('obs-ip').value = config.OBS_IP;
 		document.getElementById('obs-port').value = config.OBS_PORT;
 		document.getElementById('obs-password').value = config.OBS_PASSWORD;
-		document.getElementById('game-scene').value = config.GAME_SCENE;
-		document.getElementById('game-scene-playercams').value = config.GAME_SCENE_PLAYERCAMS;
-		document.getElementById('not-game-scene').value = config.NOT_GAME_SCENE;
-		document.getElementById('not-game-coms-scene').value = config.NOT_GAME_COMS_SCENE;
-		document.getElementById('bracket-scene').value = config.BRACKET_SCENE;
-		document.getElementById('overlay-name').value = config.OVERLAY_NAME;
-		document.getElementById('cam-left-group').value = config.CAM_LEFT_GROUP;
-		document.getElementById('cam-right-group').value = config.CAM_RIGHT_GROUP;
-		document.getElementById('cam-p1').value = config.CAM_P1;
-		document.getElementById('cam-p2').value = config.CAM_P2;
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
 			config.SWITCH_IP = this.value;
@@ -174,61 +148,6 @@
 
 		document.getElementById('obs-password').addEventListener('change', function() {
 			config.OBS_PASSWORD = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('game-scene').addEventListener('change', function() {
-			config.GAME_SCENE = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('game-scene-playercams').addEventListener('change', function() {
-			config.GAME_SCENE_PLAYERCAMS = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('not-game-scene').addEventListener('change', function() {
-			config.NOT_GAME_SCENE = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('not-game-coms-scene').addEventListener('change', function() {
-			config.NOT_GAME_COMS_SCENE = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('bracket-scene').addEventListener('change', function() {
-			config.BRACKET_SCENE = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('overlay-name').addEventListener('change', function() {
-			config.OVERLAY_NAME = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('cam-left-group').addEventListener('change', function() {
-			config.CAM_LEFT_GROUP = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('cam-right-group').addEventListener('change', function() {
-			config.CAM_RIGHT_GROUP = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('cam-p1').addEventListener('change', function() {
-			config.CAM_P1 = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('cam-p2').addEventListener('change', function() {
-			config.CAM_P2 = this.value;
-			updateEnv();
-		});
-
-		document.getElementById('overlay-name').addEventListener('change', function() {
-			config.OVERLAY_NAME = this.value;
 			updateEnv();
 		});
 
@@ -282,17 +201,31 @@
 
 		await connectWebSocket();
 
+		let prevStatus = null;
+		let prevError = null;
+
 		socket.addEventListener('message', function (event) {
-			console.log('Message from server: ', event.data);
-			const data = JSON.parse(event.data);
-			if(data.status == "update") {
-				var status = data.message;
-				updateStatus('switch-status', status.switchConnected);
-				updateStatus('obs-status', status.obsConnected);
-				updateStatus('tsh-status', status.tshConnected);
-				updateError('switch-error', status.switchError);
-				updateError('obs-error', status.obsError);
-				updateError('tsh-error', status.tshError);
+			try {
+				const data = JSON.parse(event.data);
+				if(data.status == "update") {
+					var status = data.message;
+					
+					if (!prevStatus || JSON.stringify(prevStatus) !== JSON.stringify(status)) {
+						updateStatus('switch-status', status.switchConnected);
+						updateStatus('obs-status', status.obsConnected);
+						updateStatus('tsh-status', status.tshConnected);
+						prevStatus = status;
+					}
+
+					if (!prevError || JSON.stringify(prevError) !== JSON.stringify(status)) {
+						updateError('switch-error', status.switchError);
+						updateError('obs-error', status.obsError);
+						updateError('tsh-error', status.tshError);
+						prevError = status;
+					}
+				}
+			} catch(e) {
+				console.log("Could not parse JSON: ", event.data);
 			}
 		});
 		
@@ -326,7 +259,7 @@
 		function updateError(id, error) {
 			const errorElement = document.getElementById(id);
 			errorElement.textContent = JSON.stringify(error);
-			console.log(error)
+			// console.log(error)
 			if (errorElement.textContent != '""') {
 				errorElement.classList.remove('hidden');
 			} else {

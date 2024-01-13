@@ -13,7 +13,7 @@ function connectWebSocket() {
 	
 		// Listen for messages
 		socket.addEventListener('message', function (event) {
-			console.log('Message from server: ', event.data);
+			// console.log('Message from server: ', event.data);
 			const data = JSON.parse(event.data);
 			if (data.status === 'success' && data.message === 'heartbeat') {
 				// Send heartbeat every 30 seconds to keep connection alive
