@@ -117,118 +117,118 @@
 <script src="gui.js"></script>
 <script>
 	(async () => {
-		let env = await fetch("../env.json");
-		env = await env.json();
+		let config = await fetch("../config.json");
+		config = await config.json();
 
-		document.getElementById('switch-ip').value = env.SWITCH_IP;
-		document.getElementById('switch-port').value = env.SWITCH_PORT;
-		document.getElementById('tsh-ip').value = env.TSH_IP;
-		document.getElementById('tsh-port').value = env.TSH_PORT;
-		document.getElementById('obs-ip').value = env.OBS_IP;
-		document.getElementById('obs-port').value = env.OBS_PORT;
-		document.getElementById('obs-password').value = env.OBS_PASSWORD;
-		document.getElementById('game-scene').value = env.GAME_SCENE;
-		document.getElementById('game-scene-playercams').value = env.GAME_SCENE_PLAYERCAMS;
-		document.getElementById('not-game-scene').value = env.NOT_GAME_SCENE;
-		document.getElementById('not-game-coms-scene').value = env.NOT_GAME_COMS_SCENE;
-		document.getElementById('bracket-scene').value = env.BRACKET_SCENE;
-		document.getElementById('overlay-name').value = env.OVERLAY_NAME;
-		document.getElementById('cam-left-group').value = env.CAM_LEFT_GROUP;
-		document.getElementById('cam-right-group').value = env.CAM_RIGHT_GROUP;
-		document.getElementById('cam-p1').value = env.CAM_P1;
-		document.getElementById('cam-p2').value = env.CAM_P2;
+		document.getElementById('switch-ip').value = config.SWITCH_IP;
+		document.getElementById('switch-port').value = config.SWITCH_PORT;
+		document.getElementById('tsh-ip').value = config.TSH_IP;
+		document.getElementById('tsh-port').value = config.TSH_PORT;
+		document.getElementById('obs-ip').value = config.OBS_IP;
+		document.getElementById('obs-port').value = config.OBS_PORT;
+		document.getElementById('obs-password').value = config.OBS_PASSWORD;
+		document.getElementById('game-scene').value = config.GAME_SCENE;
+		document.getElementById('game-scene-playercams').value = config.GAME_SCENE_PLAYERCAMS;
+		document.getElementById('not-game-scene').value = config.NOT_GAME_SCENE;
+		document.getElementById('not-game-coms-scene').value = config.NOT_GAME_COMS_SCENE;
+		document.getElementById('bracket-scene').value = config.BRACKET_SCENE;
+		document.getElementById('overlay-name').value = config.OVERLAY_NAME;
+		document.getElementById('cam-left-group').value = config.CAM_LEFT_GROUP;
+		document.getElementById('cam-right-group').value = config.CAM_RIGHT_GROUP;
+		document.getElementById('cam-p1').value = config.CAM_P1;
+		document.getElementById('cam-p2').value = config.CAM_P2;
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
-			env.SWITCH_IP = this.value;
+			config.SWITCH_IP = this.value;
 		});
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
-			env.SWITCH_IP = this.value;
+			config.SWITCH_IP = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('switch-port').addEventListener('change', function() {
-			env.SWITCH_PORT = this.value;
+			config.SWITCH_PORT = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('tsh-ip').addEventListener('change', function() {
-			env.TSH_IP = this.value;
+			config.TSH_IP = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('tsh-port').addEventListener('change', function() {
-			env.TSH_PORT = this.value;
+			config.TSH_PORT = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('obs-ip').addEventListener('change', function() {
-			env.OBS_IP = this.value;
+			config.OBS_IP = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('obs-port').addEventListener('change', function() {
-			env.OBS_PORT = this.value;
+			config.OBS_PORT = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('obs-password').addEventListener('change', function() {
-			env.OBS_PASSWORD = this.value;
+			config.OBS_PASSWORD = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('game-scene').addEventListener('change', function() {
-			env.GAME_SCENE = this.value;
+			config.GAME_SCENE = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('game-scene-playercams').addEventListener('change', function() {
-			env.GAME_SCENE_PLAYERCAMS = this.value;
+			config.GAME_SCENE_PLAYERCAMS = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('not-game-scene').addEventListener('change', function() {
-			env.NOT_GAME_SCENE = this.value;
+			config.NOT_GAME_SCENE = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('not-game-coms-scene').addEventListener('change', function() {
-			env.NOT_GAME_COMS_SCENE = this.value;
+			config.NOT_GAME_COMS_SCENE = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('bracket-scene').addEventListener('change', function() {
-			env.BRACKET_SCENE = this.value;
+			config.BRACKET_SCENE = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('overlay-name').addEventListener('change', function() {
-			env.OVERLAY_NAME = this.value;
+			config.OVERLAY_NAME = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('cam-left-group').addEventListener('change', function() {
-			env.CAM_LEFT_GROUP = this.value;
+			config.CAM_LEFT_GROUP = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('cam-right-group').addEventListener('change', function() {
-			env.CAM_RIGHT_GROUP = this.value;
+			config.CAM_RIGHT_GROUP = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('cam-p1').addEventListener('change', function() {
-			env.CAM_P1 = this.value;
+			config.CAM_P1 = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('cam-p2').addEventListener('change', function() {
-			env.CAM_P2 = this.value;
+			config.CAM_P2 = this.value;
 			updateEnv();
 		});
 
 		document.getElementById('overlay-name').addEventListener('change', function() {
-			env.OVERLAY_NAME = this.value;
+			config.OVERLAY_NAME = this.value;
 			updateEnv();
 		});
 
@@ -250,21 +250,21 @@
 			sendCommand('connectToOBS');
 			try {
 				obs = new OBSWebSocket();
-				await obs.connect(`ws://${env.OBS_IP}:${env.OBS_PORT}`, env.OBS_PASSWORD);
+				await obs.connect(`ws://${config.OBS_IP}:${config.OBS_PORT}`, config.OBS_PASSWORD);
 				console.log('Connected to OBS');
 				let response = await obs.call('GetGroupSceneItemList', {
-					'sceneName': env.CAM_LEFT_GROUP
+					'sceneName': config.CAM_LEFT_GROUP
 				})
 				response.sceneItems.forEach(item => {
-					if(item.sourceName == env.CAM_P1) {
+					if(item.sourceName == config.CAM_P1) {
 						CAM_LEFT_P1 = item.sceneItemId;
 					}
-					if(item.sourceName == env.CAM_P2) {
+					if(item.sourceName == config.CAM_P2) {
 						CAM_LEFT_P2 = item.sceneItemId;
 					}
 				});
 				response = await obs.call('GetGroupSceneItemList', {
-					'sceneName': env.CAM_RIGHT_GROUP
+					'sceneName': config.CAM_RIGHT_GROUP
 				})
 				response.sceneItems.forEach(item => {
 					if(item.sourceName == "cam-p1") {
@@ -337,55 +337,55 @@
 		function updateEnv() {
 			const message = {
 				command: 'set_env',
-				env: JSON.stringify(env)
+				env: JSON.stringify(config)
 			};
 			socket.send(JSON.stringify(message));
 		}
 
 		async function swap() {
 			response = await obs.call('GetSceneItemEnabled', {
-				'sceneName': env.CAM_RIGHT_GROUP,
+				'sceneName': config.CAM_RIGHT_GROUP,
 				'sceneItemId': CAM_RIGHT_P1
 			})
 			if(response.sceneItemEnabled) {
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_RIGHT_GROUP,
+					'sceneName': config.CAM_RIGHT_GROUP,
 					'sceneItemId': CAM_RIGHT_P1,
 					'sceneItemEnabled': false
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_RIGHT_GROUP,
+					'sceneName': config.CAM_RIGHT_GROUP,
 					'sceneItemId': CAM_RIGHT_P2,
 					'sceneItemEnabled': true
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_LEFT_GROUP,
+					'sceneName': config.CAM_LEFT_GROUP,
 					'sceneItemId': CAM_LEFT_P1,
 					'sceneItemEnabled': true
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_LEFT_GROUP,
+					'sceneName': config.CAM_LEFT_GROUP,
 					'sceneItemId': CAM_LEFT_P2,
 					'sceneItemEnabled': false
 				})
 			} else {
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_RIGHT_GROUP,
+					'sceneName': config.CAM_RIGHT_GROUP,
 					'sceneItemId': CAM_RIGHT_P1,
 					'sceneItemEnabled': true
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_RIGHT_GROUP,
+					'sceneName': config.CAM_RIGHT_GROUP,
 					'sceneItemId': CAM_RIGHT_P2,
 					'sceneItemEnabled': false
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_LEFT_GROUP,
+					'sceneName': config.CAM_LEFT_GROUP,
 					'sceneItemId': CAM_LEFT_P1,
 					'sceneItemEnabled': false
 				})
 				await obs.call('SetSceneItemEnabled', {
-					'sceneName': env.CAM_LEFT_GROUP,
+					'sceneName': config.CAM_LEFT_GROUP,
 					'sceneItemId': CAM_LEFT_P2,
 					'sceneItemEnabled': true
 				})
