@@ -87,6 +87,15 @@ wss.on('connection', function connection(ws) {
 						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
+				case 'swapCams':
+					try {
+						swapCams();
+						response = { status: 'success', message: 'received swapCams' };
+					}
+					catch (e) {
+						response = { status: 'error', message: serializeError(e) };
+					}
+					break;
 				case 'heartbeat':
 					response = { status: 'success', message: 'heartbeat' };
 					break;
@@ -339,6 +348,10 @@ async function tshLoadSet(info) {
 var overlayId;
 
 let timestampsFileName;
+let CAM_LEFT_P1;
+let CAM_LEFT_P2;
+let CAM_RIGHT_P1;
+let CAM_RIGHT_P2;
 
 async function connectToOBS() {
     try {
@@ -349,15 +362,41 @@ async function connectToOBS() {
 		}).then((response) => {
 			overlayId = response.sceneItemId;
 		})
+		
+		let response = await obs.call('GetSceneItemList', {
+			'sceneName': CONFIG.CAM_LEFT_SCENE
+		})
+		response.sceneItems.forEach(item => {
+			console.log({item})
+			if(item.sourceName == CONFIG.CAM_P1_SCENE) {
+				CAM_LEFT_P1 = item.sceneItemId;
+			}
+			if(item.sourceName == CONFIG.CAM_P2_SCENE) {
+				CAM_LEFT_P2 = item.sceneItemId;
+			}
+		});
+		response = await obs.call('GetSceneItemList', {
+			'sceneName': CONFIG.CAM_RIGHT_SCENE
+		})
+		response.sceneItems.forEach(item => {
+			if(item.sourceName == CONFIG.CAM_P1_SCENE) {
+				CAM_RIGHT_P1 = item.sceneItemId;
+			}
+			if(item.sourceName == CONFIG.CAM_P2_SCENE) {
+				CAM_RIGHT_P2 = item.sceneItemId;
+			}
+		});
+
 		await obs.call('GetStreamStatus').then((response) => {
 			if(response.outputActive) {
 				createTimestampsFile();
 			}
 		})
+
 		console.log('Connected to OBS');
 		webSocketInfo.obsConnected = 1;
 		webSocketInfo.obsError = "";
-		updateGUI();	
+		updateGUI();
     } catch (error) {
         console.log('Could not connect to OBS' + error);
 		webSocketInfo.obsConnected = 0;
@@ -365,6 +404,65 @@ async function connectToOBS() {
 		updateGUI();
     }
 };
+
+async function swapCams() {
+	try {
+		if(webSocketInfo.obsConnected == 1) {
+			let response = await obs.call('GetSceneItemEnabled', {
+				'sceneName': CONFIG.CAM_RIGHT_SCENE,
+				'sceneItemId': CAM_RIGHT_P1
+			})
+			if(response.sceneItemEnabled) {
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_RIGHT_SCENE,
+					'sceneItemId': CAM_RIGHT_P1,
+					'sceneItemEnabled': false
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_RIGHT_SCENE,
+					'sceneItemId': CAM_RIGHT_P2,
+					'sceneItemEnabled': true
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_LEFT_SCENE,
+					'sceneItemId': CAM_LEFT_P1,
+					'sceneItemEnabled': true
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_LEFT_SCENE,
+					'sceneItemId': CAM_LEFT_P2,
+					'sceneItemEnabled': false
+				})
+			} else {
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_RIGHT_SCENE,
+					'sceneItemId': CAM_RIGHT_P1,
+					'sceneItemEnabled': true
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_RIGHT_SCENE,
+					'sceneItemId': CAM_RIGHT_P2,
+					'sceneItemEnabled': false
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_LEFT_SCENE,
+					'sceneItemId': CAM_LEFT_P1,
+					'sceneItemEnabled': false
+				})
+				await obs.call('SetSceneItemEnabled', {
+					'sceneName': CONFIG.CAM_LEFT_SCENE,
+					'sceneItemId': CAM_LEFT_P2,
+					'sceneItemEnabled': true
+				})
+			}
+			webSocketInfo.obsError = "";
+		}
+	}  catch (error) {
+        console.log('Could not swap cams!!' + error);
+		webSocketInfo.obsError = serializeError(error);
+		updateGUI();
+    }
+}
 
 obs.on('StreamStateChanged', response => {
 	if(response.outputActive == true) {
@@ -466,6 +564,8 @@ function connectToSwitch() {
 			} else {
 				return;
 			}
+
+			// var onlyGUIInfo = info;
 			
 			webSocketInfo.switchInfo = info;
 			updateGUI();

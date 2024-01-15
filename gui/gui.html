@@ -88,7 +88,7 @@
 		<br>
 	</div>
 	<button id="update-bracket" onclick="updateBracket()">UPDATE BRACKET</button>
-	<button id="update-bracket" onclick="swap()">SWAP CAMS</button>
+	<button id="update-bracket" onclick="swapCams()">SWAP CAMS</button>
 	<br>
 	<h1>PLEASE ADD YOURSELF AS A COMMENTATOR IF YOU ARE COMMENTATING</h1>
 	<img src="assets/Screenshot_197.png" width="900">
@@ -159,12 +159,6 @@
 		document.getElementById('tsh-connect').addEventListener('click', function() {
 			sendCommand('connectToTSH');
 		});
-		
-		let CAM_LEFT_P1;
-		let CAM_LEFT_P2;
-		let CAM_RIGHT_P1;
-		let CAM_RIGHT_P2;
-		let OBS;
 
 		document.getElementById('obs-connect').addEventListener('click', async function() {
 			sendCommand('connectToOBS');
@@ -175,6 +169,8 @@
 		let prevStatus = null;
 		let prevError = null;
 
+		let triedConnectingToOBS = false;
+
 		socket.addEventListener('message', function (event) {
 			try {
 				const data = JSON.parse(event.data);
@@ -184,9 +180,6 @@
 					if (!prevStatus || JSON.stringify(prevStatus) !== JSON.stringify(status)) {
 						updateStatus('switch-status', status.switchConnected);
 						updateStatus('obs-status', status.obsConnected);
-						if(status.obsConnected == 1) {
-							connectToOBS();
-						}
 						updateStatus('tsh-status', status.tshConnected);
 						prevStatus = status;
 					}
@@ -249,89 +242,10 @@
 			socket.send(JSON.stringify(message));
 		}
 
-		async function connectToOBS() {
-			try {
-				obs = new OBSWebSocket();
-				await obs.connect(`ws://${config.OBS_IP}:${config.OBS_PORT}`, config.OBS_PASSWORD);
-				console.log('Connected to OBS');
-				let response = await obs.call('GetGroupSceneItemList', {
-					'sceneName': config.CAM_LEFT_GROUP
-				})
-				response.sceneItems.forEach(item => {
-					if(item.sourceName == config.CAM_P1) {
-						CAM_LEFT_P1 = item.sceneItemId;
-					}
-					if(item.sourceName == config.CAM_P2) {
-						CAM_LEFT_P2 = item.sceneItemId;
-					}
-				});
-				response = await obs.call('GetGroupSceneItemList', {
-					'sceneName': config.CAM_RIGHT_GROUP
-				})
-				response.sceneItems.forEach(item => {
-					if(item.sourceName == "cam-p1") {
-						CAM_RIGHT_P1 = item.sceneItemId;
-					}
-					if(item.sourceName == "cam-p2") {
-						CAM_RIGHT_P2 = item.sceneItemId;
-					}
-				});
-				// document.getElementsByTagName("body")[0].innerHTML = "<button onclick='swap()'>SWAP PLAYER CAMS</button><br>" + document.getElementsByTagName("body")[0].innerHTML;
-			} catch (error) {
-				console.error(error)
-				document.getElementById('obs-error').textContent += error;
-			}
+		window.swapCams = function() {
+			sendCommand('swapCams');
 		}
 
-		window.swap = async function() {
-			response = await obs.call('GetSceneItemEnabled', {
-				'sceneName': config.CAM_RIGHT_GROUP,
-				'sceneItemId': CAM_RIGHT_P1
-			})
-			if(response.sceneItemEnabled) {
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_RIGHT_GROUP,
-					'sceneItemId': CAM_RIGHT_P1,
-					'sceneItemEnabled': false
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_RIGHT_GROUP,
-					'sceneItemId': CAM_RIGHT_P2,
-					'sceneItemEnabled': true
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_LEFT_GROUP,
-					'sceneItemId': CAM_LEFT_P1,
-					'sceneItemEnabled': true
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_LEFT_GROUP,
-					'sceneItemId': CAM_LEFT_P2,
-					'sceneItemEnabled': false
-				})
-			} else {
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_RIGHT_GROUP,
-					'sceneItemId': CAM_RIGHT_P1,
-					'sceneItemEnabled': true
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_RIGHT_GROUP,
-					'sceneItemId': CAM_RIGHT_P2,
-					'sceneItemEnabled': false
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_LEFT_GROUP,
-					'sceneItemId': CAM_LEFT_P1,
-					'sceneItemEnabled': false
-				})
-				await obs.call('SetSceneItemEnabled', {
-					'sceneName': config.CAM_LEFT_GROUP,
-					'sceneItemId': CAM_LEFT_P2,
-					'sceneItemEnabled': true
-				})
-			}
-		}
 		window.updateBracket = function() {
 			document.getElementById("update-bracket").innerHTML = "UPDATING BRACKET...";
 			fetch('http://127.0.0.1:5000/update-bracket').then(response => {
