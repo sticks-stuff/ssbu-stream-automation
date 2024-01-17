@@ -542,11 +542,11 @@ function connectToSwitch() {
 		let isAutoBracketScene = false;
 		let previousInfo = null;
 
+		var invalidParseAttempts = 0;
 		server.on('data', async (data) => {
 			var info;
 
 			concat_data += data.toString();
-			var invalidParseAttempts = 0;
 
 			if(data.toString().includes('\n')) {
 				try {
@@ -554,6 +554,7 @@ function connectToSwitch() {
 					concat_data = '';
 				} catch (error) {
 					console.log('Could not parse JSON');
+					console.log(data.toString());
 					invalidParseAttempts++;
 					if (invalidParseAttempts > maxInvalidParseAttempts) {
 						console.log('Too many invalid parse attempts, resetting concat_data');
