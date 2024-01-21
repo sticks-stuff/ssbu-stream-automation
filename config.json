@@ -1,9 +1,9 @@
 {
-	"SWITCH_IP": "192.168.69.145",
+	"SWITCH_IP": "172.14.167.162",
 	"SWITCH_PORT": "4242",
 	"OBS_IP": "localhost",
 	"OBS_PORT": "4455",
-	"OBS_PASSWORD": "gIrwKyVys5bACaMg",
+	"OBS_PASSWORD": "I6VIA1pUTIwVjDaF",
 	"TSH_IP": "127.0.0.1",
 	"TSH_PORT": "5000",
 	"GAME_SCENE": "Game",

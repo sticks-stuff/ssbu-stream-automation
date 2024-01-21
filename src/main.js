@@ -208,7 +208,7 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	const setData = await loadJsonFromUrl('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/get-sets');
+	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
 	var foundSet = false;
 	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
 

@@ -22,7 +22,8 @@
 	{
 		"sggname": "Big Red",
 		"tags": [
-			"Jode"
+			"Jode",
+			"Yuta"
 		]
 	},
 	{
@@ -115,6 +116,12 @@
 		"sggname": "Smashworth",
 		"tags": [
 			"Fim"
+		]
+	},
+	{
+		"sggname": "Crayon Muncher",
+		"tags": [
+			"mmm crayon"
 		]
 	}
 ]
