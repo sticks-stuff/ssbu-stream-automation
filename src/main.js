@@ -187,6 +187,9 @@ const PORT_COLORS = [
 ]
 
 async function tshLoadSet(info) {
+	console.log(`Called tshLoadSet at ${new Date()}\n`);
+	await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
+
 	var players = JSON.parse(JSON.stringify(info.players));
 	// console.log(tags)
 	// for (let index = 0; index < players; index++) {
@@ -208,9 +211,9 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
+	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
 	var foundSet = false;
-	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
+	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -248,8 +251,8 @@ async function tshLoadSet(info) {
 			}
 		}
 
-		console.log({ p1found })
-		console.log({ p2found })
+		// console.log({ p1found })
+		// console.log({ p2found })
 
 		if (p1found !== false && p2found !== false) {
 			currentSet = set;
@@ -268,11 +271,6 @@ async function tshLoadSet(info) {
 				}
 				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team0-color-${PORT_COLORS[p1found]}`);
 				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team1-color-${PORT_COLORS[p2found]}`);
-				// console.log("waiting 3 seconds for flip")
-				// setTimeout(async () => {
-				// 	console.log("flipping!")
-				// 	await makeHttpRequest('http://' + ENV.TSH_IP + ':' + ENV.TSH_PORT + '/swap-teams');
-				// }, 3000); // takes about 2 seconds to load the set
 			} else {
 				p1 = players[p2found].name
 				console.log({ p1 })
@@ -290,10 +288,10 @@ async function tshLoadSet(info) {
 	}
 
 	if(foundSet == false) {
-		console.log("here1")
+		console.log("Could not find a between two players!")
 		let p1found = false;
 		let p2found = false;
-		await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
+		// 
 		for (let i = 0; i < players.length; i++) {
 			const player = players[i];
 	
@@ -317,6 +315,7 @@ async function tshLoadSet(info) {
 					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
+					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P1 instead.");
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
 					player.nameInDB = false;
 				}
@@ -330,6 +329,7 @@ async function tshLoadSet(info) {
 					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
+					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P2 instead.");
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 					player.nameInDB = false;
 				}
@@ -339,7 +339,6 @@ async function tshLoadSet(info) {
 
 	updateChars(players);
 
-	console.log(`Called at ${new Date()}\n ${JSON.stringify(players, null, 4)}`);
 	webSocketInfo.tshInfo.players = players;
 	webSocketInfo.tshInfo.foundSet = foundSet;
 	updateGUI();
@@ -367,7 +366,7 @@ async function connectToOBS() {
 			'sceneName': CONFIG.CAM_LEFT_SCENE
 		})
 		response.sceneItems.forEach(item => {
-			console.log({item})
+			// console.log({item})
 			if(item.sourceName == CONFIG.CAM_P1_SCENE) {
 				CAM_LEFT_P1 = item.sceneItemId;
 			}
@@ -482,13 +481,13 @@ function createTimestampsFile() {
 
 let resultsScreenStart = null;
 
-function updateChars(players) {
-	console.log({p1})
-	console.log({p2})
+async function updateChars(players) {
+	// console.log({p1})
+	// console.log({p2})
+	console.log(`Called updateChars at ${new Date()}\n`);
 	for (let i = 0; i < players.length; i++) {
 		const player = players[i];
 		if (p1 != null && p2 != null && player.character != 0 && player.name != null) {
-			console.log("called uypdates cahgasras")
 			let data = {
 				"mains": {
 					"ssbu": [
@@ -500,10 +499,10 @@ function updateChars(players) {
 				}
 			};
 			if(player.name.toLowerCase() === p1) {
-				axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
+				await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 				console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 			} else if (player.name.toLowerCase() === p2) {
-				axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
+				await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
 				console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 			} else {
 				console.error(`Could not locate a character change of a player in a loaded set!! This should never happen!!!! Player: ${player.name} P1: ${p1} P2: ${p2}`)
@@ -581,7 +580,7 @@ function connectToSwitch() {
 			if (info.is_match && oldMatchInfo !== info.is_match) {
 				oldMatchInfo = info.is_match;
 				if(webSocketInfo.tshConnected == 1) {
-					updateChars(info.players); // just in case two people on different sets play the same character 
+					await updateChars(info.players); // just in case two people on different sets play the same character 
 				}
 				if(webSocketInfo.obsConnected == 1) {
 					if(webSocketInfo.tshConnected == 1) {
@@ -703,15 +702,15 @@ function connectToSwitch() {
 					const currentPlayer = info.players[i];
 
 					if (oldPlayer.name !== currentPlayer.name) {
-						console.log(oldPlayer.name)
-						console.log(currentPlayer.name)
+						// console.log(oldPlayer.name)
+						// console.log(currentPlayer.name)
 						await tshLoadSet(info);  // Replace this with your function
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
 						break;
 					}
 
 					if (oldPlayer.stocks !== currentPlayer.stocks) {
-						console.log(currentPlayer)
+						// console.log(currentPlayer)
 						if (currentPlayer.stocks == 0) {
 							if (p1 != null && p2 != null) {
 								var winningPlayer;
@@ -753,7 +752,7 @@ function connectToSwitch() {
 					}
 
 					if (oldPlayer.character !== currentPlayer.character || oldPlayer.skin !== currentPlayer.skin) {
-						updateChars(info.players);
+						await updateChars(info.players);
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
 					}
 				}
