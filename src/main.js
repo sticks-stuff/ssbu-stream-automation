@@ -87,6 +87,32 @@ wss.on('connection', function connection(ws) {
 						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
+				case 'disconnectFromTSH':
+                    try {
+                        disconnectFromTSH();
+                        response = { status: 'success', message: 'Disconnected from TSH' };
+                    } catch (e) {
+                        response = { status: 'error', message: serializeError(e) };
+                    }
+                    break;
+
+                case 'disconnectFromOBS':
+                    try {
+                        disconnectFromOBS();
+                        response = { status: 'success', message: 'Disconnected from OBS' };
+                    } catch (e) {
+                        response = { status: 'error', message: serializeError(e) };
+                    }
+                    break;
+
+                case 'disconnectFromSwitch':
+                    try {
+                        disconnectFromSwitch();
+                        response = { status: 'success', message: 'Disconnected from Switch' };
+                    } catch (e) {
+                        response = { status: 'error', message: serializeError(e) };
+                    }
+                    break;
 				case 'swapCams':
 					try {
 						swapCams();
@@ -288,7 +314,7 @@ async function tshLoadSet(info) {
 	}
 
 	if(foundSet == false) {
-		console.log("Could not find a between two players!")
+		console.log("Could not find a set between two players!")
 		let p1found = false;
 		let p2found = false;
 		// 
@@ -403,6 +429,14 @@ async function connectToOBS() {
 		updateGUI();
     }
 };
+
+async function disconnectFromOBS() {
+	obs.disconnect();
+	console.log('Disconnected from OBS');
+	webSocketInfo.obsConnected = 0;
+	webSocketInfo.obsError = "";
+	updateGUI();
+}
 
 async function swapCams() {
 	try {
@@ -527,19 +561,25 @@ async function isCommentary() {
 
 var concat_data = '';
 var maxInvalidParseAttempts = 5;
+var server;
 
 function connectToSwitch() {
-	const server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
+	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
+		if(!server.readable) {
+			console.log("OOPS FAKE CONNECTION TO SWITCH!")
+			console.log("ALREADY AN EXISTING CONNECTION LOL??")
+			return;
+		}
 		console.log('Connected to Switch');
 		webSocketInfo.switchConnected = 1;
 		webSocketInfo.switchError = "";
 		updateGUI();
 
-		let oldPlayers = null;
-		let oldMatchInfo = null;
-		let numCharOld = 0;
-		let isAutoBracketScene = false;
-		let previousInfo = null;
+		var oldPlayers = null;
+		var oldMatchInfo = null;
+		var numCharOld = 0;
+		var isAutoBracketScene = false;
+		var previousInfo = null;
 
 		var invalidParseAttempts = 0;
 		server.on('data', async (data) => {
@@ -568,6 +608,7 @@ function connectToSwitch() {
 			// var onlyGUIInfo = info;
 			
 			webSocketInfo.switchInfo = info;
+			console.log(info);
 			updateGUI();
 
 			let numChar = 0;
@@ -775,6 +816,17 @@ function connectToSwitch() {
 	});
 }
 
+function disconnectFromSwitch() { // broken :(
+	webSocketInfo.switchConnected = 0;
+	console.log('Disconnected from Switch');
+	server.removeAllListeners() 
+	server.disconnect();
+	server.end();
+	server.destroy();
+	server = null;
+	updateGUI();
+}
+
 // connectToSwitch();
 
 async function connectToTSH() {
@@ -788,4 +840,11 @@ async function connectToTSH() {
 		webSocketInfo.tshError = serializeError(error);
 		updateGUI();
 	}
+}
+
+function disconnectFromTSH() {
+	webSocketInfo.tshConnected = 0; //TEMP
+	webSocketInfo.tshError = "";
+	console.log('Disconnected from TSH');
+	updateGUI();
 }

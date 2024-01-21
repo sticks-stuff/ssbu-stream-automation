@@ -153,15 +153,27 @@
 		});
 
 		document.getElementById('switch-connect').addEventListener('click', function() {
-			sendCommand('connectToSwitch');
+			if (this.textContent === 'CONNECT') {
+				sendCommand('connectToSwitch');
+			} else {
+				sendCommand('disconnectFromSwitch');
+			}
 		});
 
 		document.getElementById('tsh-connect').addEventListener('click', function() {
-			sendCommand('connectToTSH');
+			if (this.textContent === 'CONNECT') {
+				sendCommand('connectToTSH');
+			} else {
+				sendCommand('disconnectFromTSH');
+			}
 		});
 
 		document.getElementById('obs-connect').addEventListener('click', async function() {
-			sendCommand('connectToOBS');
+			if (this.textContent === 'CONNECT') {
+				sendCommand('connectToOBS');
+			} else {
+				sendCommand('disconnectFromOBS');
+			}
 		});
 
 		await connectWebSocket();
@@ -207,15 +219,27 @@
 			const statusElement = document.getElementById(id);
 			statusElement.classList.remove('status-unknown', 'status-connected', 'status-disconnected');
 
+			let connectButton;
+			if (id === 'switch-status') {
+				connectButton = document.getElementById('switch-connect');
+			} else if (id === 'tsh-status') {
+				connectButton = document.getElementById('tsh-connect');
+			} else if (id === 'obs-status') {
+				connectButton = document.getElementById('obs-connect');
+			}
+
 			switch (status) {
 				case -1:
 					statusElement.classList.add('status-unknown');
+					if (connectButton) connectButton.textContent = 'CONNECT';
 					break;
 				case 0:
 					statusElement.classList.add('status-disconnected');
+					if (connectButton) connectButton.textContent = 'CONNECT';
 					break;
 				case 1:
 					statusElement.classList.add('status-connected');
+					if (connectButton) connectButton.textContent = 'DISCONNECT';
 					break;
 				default:
 					console.error('Unknown status: ', status);
