@@ -105,10 +105,10 @@ wss.on('connection', function connection(ws) {
                     }
                     break;
 
-                case 'disconnectFromSwitch':
+                case 'clearSwitchCache':
                     try {
-                        disconnectFromSwitch();
-                        response = { status: 'success', message: 'Disconnected from Switch' };
+                        clearSwitchCache();
+                        response = { status: 'success', message: 'clearSwitchCache' };
                     } catch (e) {
                         response = { status: 'error', message: serializeError(e) };
                     }
@@ -562,6 +562,11 @@ async function isCommentary() {
 var concat_data = '';
 var maxInvalidParseAttempts = 5;
 var server;
+var oldPlayers = null;
+var oldMatchInfo = null;
+var numCharOld = 0;
+var isAutoBracketScene = false;
+var previousInfo = null;
 
 function connectToSwitch() {
 	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
@@ -575,11 +580,11 @@ function connectToSwitch() {
 		webSocketInfo.switchError = "";
 		updateGUI();
 
-		var oldPlayers = null;
-		var oldMatchInfo = null;
-		var numCharOld = 0;
-		var isAutoBracketScene = false;
-		var previousInfo = null;
+		oldPlayers = null;
+		oldMatchInfo = null;
+		numCharOld = 0;
+		isAutoBracketScene = false;
+		previousInfo = null;
 
 		var invalidParseAttempts = 0;
 		server.on('data', async (data) => {
@@ -608,7 +613,7 @@ function connectToSwitch() {
 			// var onlyGUIInfo = info;
 			
 			webSocketInfo.switchInfo = info;
-			console.log(info);
+			// console.log(info);
 			updateGUI();
 
 			let numChar = 0;
@@ -745,7 +750,7 @@ function connectToSwitch() {
 					if (oldPlayer.name !== currentPlayer.name) {
 						// console.log(oldPlayer.name)
 						// console.log(currentPlayer.name)
-						await tshLoadSet(info);  // Replace this with your function
+						await tshLoadSet(info);
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
 						break;
 					}
@@ -816,15 +821,13 @@ function connectToSwitch() {
 	});
 }
 
-function disconnectFromSwitch() { // broken :(
-	webSocketInfo.switchConnected = 0;
-	console.log('Disconnected from Switch');
-	server.removeAllListeners() 
-	server.disconnect();
-	server.end();
-	server.destroy();
-	server = null;
-	updateGUI();
+async function clearSwitchCache() { // broken :(
+	oldPlayers = null;
+	oldMatchInfo = null;
+	numCharOld = 0;
+	isAutoBracketScene = false;
+	previousInfo = null;
+	console.log("clearSwitchCache");
 }
 
 // connectToSwitch();

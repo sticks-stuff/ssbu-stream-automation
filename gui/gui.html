@@ -156,7 +156,7 @@
 			if (this.textContent === 'CONNECT') {
 				sendCommand('connectToSwitch');
 			} else {
-				sendCommand('disconnectFromSwitch');
+				sendCommand('clearSwitchCache');
 			}
 		});
 
@@ -239,7 +239,13 @@
 					break;
 				case 1:
 					statusElement.classList.add('status-connected');
-					if (connectButton) connectButton.textContent = 'DISCONNECT';
+					if (connectButton) {
+						if(id === 'switch-status') {
+							connectButton.textContent = 'CLEAR CACHE';
+						} else {
+							connectButton.textContent = 'DISCONNECT';
+						}
+					}
 					break;
 				default:
 					console.error('Unknown status: ', status);
