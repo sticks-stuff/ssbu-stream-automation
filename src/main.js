@@ -9,6 +9,7 @@ import WebSocket from "ws";
 import { fileURLToPath } from 'url';
 import path from 'path';
 import {serializeError, deserializeError} from 'serialize-error';
+import { setTimeout } from "timers/promises";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -285,7 +286,7 @@ async function tshLoadSet(info) {
 			await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-set?set=${set.id}&no-mains`);
 			console.log(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-set?set=${set.id}&no-mains`)
 			var isSwapped = await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-get-swap');
-			console.log(isSwapped)
+			// console.log(isSwapped)
 			if (p1found > p2found) {
 				p1 = players[p1found].name
 				console.log({ p2 })
@@ -315,6 +316,7 @@ async function tshLoadSet(info) {
 	if(foundSet == false) {
 		console.log("Could not find a set between two players!")
 		await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
+		// await setTimeout(1000);
 		let p1found = false;
 		let p2found = false;
 		// 
@@ -336,9 +338,9 @@ async function tshLoadSet(info) {
 				p1found = true;
 				p2 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
 					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P1 instead.");
@@ -350,9 +352,9 @@ async function tshLoadSet(info) {
 				p2found = true
 				p1 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
 					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P2 instead.");
@@ -532,10 +534,11 @@ async function updateChars(players) {
 					]
 				}
 			};
-			if(player.name.toLowerCase() === p1) {
+			// console.log(`MY NAME IS ${player.name.toLowerCase()} AND I AM LOOKING FOR A CHARACTER CHANGE OF ${p1} AND ${p2} AT ${new Date()}!`)
+			if(player.name.toLowerCase() === p1.toLowerCase()) {
 				await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 				console.log(`updated ${p1} to ${player.character} (${characters[player.character]}) ${player.skin}`);
-			} else if (player.name.toLowerCase() === p2) {
+			} else if (player.name.toLowerCase() === p2.toLowerCase()) {
 				await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
 				console.log(`updated ${p2} to ${player.character} (${characters[player.character]}) ${player.skin}`);
 			} else {
