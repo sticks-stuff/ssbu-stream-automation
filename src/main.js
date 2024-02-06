@@ -214,7 +214,6 @@ const PORT_COLORS = [
 
 async function tshLoadSet(info) {
 	console.log(`Called tshLoadSet at ${new Date()}\n`);
-	await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
 
 	var players = JSON.parse(JSON.stringify(info.players));
 	// console.log(tags)
@@ -237,9 +236,9 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
+	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
 	var foundSet = false;
-	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
+	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -315,6 +314,7 @@ async function tshLoadSet(info) {
 
 	if(foundSet == false) {
 		console.log("Could not find a set between two players!")
+		await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
 		let p1found = false;
 		let p2found = false;
 		// 
@@ -325,7 +325,7 @@ async function tshLoadSet(info) {
 				continue;
 			}
 
-			console.log(i + " " + player.name)
+			console.log("player " + i + " is " + player.name)
 	
 			let data = {
 				"gamerTag": player.uneditedName
@@ -336,9 +336,9 @@ async function tshLoadSet(info) {
 				p1found = true;
 				p2 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
 					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P1 instead.");
@@ -350,9 +350,9 @@ async function tshLoadSet(info) {
 				p2found = true
 				p1 = player.name;
 				if(player.startggname != null) {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.startggname}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.startggname}&no-mains`);
 				} else {
-					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
+					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-1-0?tag=${player.name}&no-mains`);
 				}
 				if(response == "ERROR") {
 					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P2 instead.");
@@ -569,10 +569,12 @@ var isAutoBracketScene = false;
 var previousInfo = null;
 var countInfoPerSec = 0;
 
-setInterval(() => {
-    console.log(countInfoPerSec);
-    countInfoPerSec = 0;
-}, 1000);
+// setInterval(() => {
+// 	if(webSocketInfo.switchConnected == 1) {
+// 		console.log(countInfoPerSec);
+// 		countInfoPerSec = 0;
+// 	}
+// }, 1000);
 
 function connectToSwitch() {
 	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
@@ -603,11 +605,11 @@ function connectToSwitch() {
 					var info = JSON.parse(concat_data.toString());
 					concat_data = '';
 				} catch (error) {
-					console.log('Could not parse JSON');
-					console.log(data.toString());
+					// console.log('Could not parse JSON');
+					// console.log(data.toString());
 					invalidParseAttempts++;
 					if (invalidParseAttempts > maxInvalidParseAttempts) {
-						console.log('Too many invalid parse attempts, resetting concat_data');
+						// console.log('Too many invalid parse attempts, resetting concat_data');
 						concat_data = '';
 					}
 					return;
@@ -745,8 +747,8 @@ function connectToSwitch() {
 
 			if (webSocketInfo.tshConnected == 1) {
 				if (oldPlayers === null) {
-					await tshLoadSet(info);
 					oldPlayers = JSON.parse(JSON.stringify(info.players));
+					await tshLoadSet(info);
 				}
 
 				for (let i = 0; i < oldPlayers.length; i++) {
@@ -756,8 +758,8 @@ function connectToSwitch() {
 					if (oldPlayer.name !== currentPlayer.name) {
 						// console.log(oldPlayer.name)
 						// console.log(currentPlayer.name)
-						await tshLoadSet(info);
 						oldPlayers = JSON.parse(JSON.stringify(info.players));
+						await tshLoadSet(info);
 						break;
 					}
 
