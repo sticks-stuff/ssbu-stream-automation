@@ -567,6 +567,12 @@ var oldMatchInfo = null;
 var numCharOld = 0;
 var isAutoBracketScene = false;
 var previousInfo = null;
+var countInfoPerSec = 0;
+
+setInterval(() => {
+    console.log(countInfoPerSec);
+    countInfoPerSec = 0;
+}, 1000);
 
 function connectToSwitch() {
 	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
@@ -613,7 +619,7 @@ function connectToSwitch() {
 			// var onlyGUIInfo = info;
 			
 			webSocketInfo.switchInfo = info;
-			// console.log(info);
+			countInfoPerSec++;
 			updateGUI();
 
 			let numChar = 0;
