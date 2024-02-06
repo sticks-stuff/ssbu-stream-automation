@@ -313,7 +313,7 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	if(foundSet == false) {
+	if(foundSet == false && CONFIG.LOAD_PLAYERS_IF_NO_SET) {
 		console.log("Could not find a set between two players!")
 		await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
 		// await setTimeout(1000);
@@ -356,7 +356,7 @@ async function tshLoadSet(info) {
 				} else {
 					response = await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-load-player-from-tag-0-0?tag=${player.name}&no-mains`);
 				}
-				if(response == "ERROR") {
+				if(response == "ERROR" && CONFIG.LOAD_TAG_IF_NO_DB) {
 					console.log("Could not find an entry in the database for " + (player.startggname ? player.startggname : player.name) + ". We are loading their direct tag (" + player.name + ") as P2 instead.");
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 					player.nameInDB = false;
@@ -641,13 +641,19 @@ function connectToSwitch() {
 				}
 				if(webSocketInfo.obsConnected == 1) {
 					if(webSocketInfo.tshConnected == 1) {
-						isCommentary().then((hasCommentary) => {
-							if (hasCommentary) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
+						if(CONFIG.USE_PLAYER_CAMS) {
+							if(CONFIG.ONLY_PLAYER_CAMS_WITH_COMMENTARY) {
+								isCommentary().then((hasCommentary) => {
+									if (hasCommentary) {
+										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
+									} else {
+										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
+									}
+								});
 							} else {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
+								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
 							}
-						});
+						}
 					} else {
 						obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
 					}
@@ -705,16 +711,20 @@ function connectToSwitch() {
 				if (info.is_results_screen) {
 					if (resultsScreenStart === null) {
 						resultsScreenStart = Date.now();
-					} else if (Date.now() - resultsScreenStart > 120000) {
-						fetch('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/update-bracket')
-						.then(response => {
-							if(isAutoBracketScene === false) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.BRACKET_SCENE });
+					} else {
+						if(CONFIG.GO_TO_BRACKET_ON_INACTIVE) {
+							if (Date.now() - resultsScreenStart > CONFIG.BRACKET_INACTIVITY_TIME) {
+								fetch('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/update-bracket')
+								.then(response => {
+									if(isAutoBracketScene === false) {
+										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.BRACKET_SCENE });
+									}
+								})
+								.catch(error => console.error('Error resetting bracket:', error));
+								resultsScreenStart = null;
+								isAutoBracketScene = true;
 							}
-						})
-						.catch(error => console.error('Error:', error));
-						resultsScreenStart = null;
-						isAutoBracketScene = true;
+						}
 					}
 				} else {
 					resultsScreenStart = null;
