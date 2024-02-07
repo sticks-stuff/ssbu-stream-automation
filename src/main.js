@@ -570,14 +570,20 @@ var oldMatchInfo = null;
 var numCharOld = 0;
 var isAutoBracketScene = false;
 var previousInfo = null;
-var countInfoPerSec = 0;
 
-// setInterval(() => {
-// 	if(webSocketInfo.switchConnected == 1) {
-// 		console.log(countInfoPerSec);
-// 		countInfoPerSec = 0;
-// 	}
-// }, 1000);
+var countInfoPerSec = 0;
+var lowestCount = 99;
+
+setInterval(() => {
+	if(webSocketInfo.switchConnected == 1) {
+		// console.log(countInfoPerSec)
+		if(countInfoPerSec < lowestCount) {
+			console.log(lowestCount);
+			lowestCount = countInfoPerSec;
+		}
+		countInfoPerSec = 0;
+	}
+}, 1000);
 
 function connectToSwitch() {
 	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
@@ -586,6 +592,7 @@ function connectToSwitch() {
 			console.log("ALREADY AN EXISTING CONNECTION LOL??")
 			return;
 		}
+		// server.setTimeout(1000);
 		console.log('Connected to Switch');
 		webSocketInfo.switchConnected = 1;
 		webSocketInfo.switchError = "";
