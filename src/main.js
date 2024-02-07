@@ -316,6 +316,10 @@ async function tshLoadSet(info) {
 	if(foundSet == false && CONFIG.LOAD_PLAYERS_IF_NO_SET) {
 		console.log("Could not find a set between two players!")
 		await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-clear-all`);
+		var isSwapped = await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-get-swap');
+		if (isSwapped == "True") {
+			await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-swap-teams');
+		}
 		// await setTimeout(1000);
 		let p1found = false;
 		let p2found = false;
