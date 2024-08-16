@@ -351,6 +351,7 @@ async function tshLoadSet(info) {
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-1-0', data);
 					player.nameInDB = false;
 				}
+				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team1-color-${PORT_COLORS[i]}`);
 			} else {
 				let response;
 				p2found = true
@@ -365,6 +366,7 @@ async function tshLoadSet(info) {
 					await axios.post('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-update-team-0-0', data);
 					player.nameInDB = false;
 				}
+				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team0-color-${PORT_COLORS[i]}`);
 			}
 		}
 	}
