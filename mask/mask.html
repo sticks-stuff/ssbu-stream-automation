@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<style>
+		body,
+		html {
+			margin: 0;
+			padding: 0;
+			height: 100%;
+			overflow: hidden;
+		}
+
+		#myCanvas {
+			position: absolute;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+</head>
+
+<body>
+	<canvas id="myCanvas" width="1920" height="1080"></canvas>
+	<script src="../node_modules/reconnecting-websocket/dist/reconnecting-websocket-iife.min.js"></script>
+	<script>
+		(async () => {
+			const ws = new ReconnectingWebSocket('ws://127.0.0.1:9310');
+
+			let characters = await fetch("characters.json");
+			characters = await characters.json();
+
+			var selection_mask = new Image();
+			selection_mask.src = "assets/hero_selector/hero_selection_mask.png";
+			var selector_mask = new Image();
+			selector_mask.src = "assets/hero_selector/hero_selector_mask.png";
+
+			const canvas = document.getElementById('myCanvas');
+			const ctx = canvas.getContext('2d');
+
+			ws.onopen = function (event) {
+				console.log('Connection is open');
+			};
+
+			ws.onmessage = function (event) {
+				var data = JSON.parse(event.data);
+				data = data.message.switchInfo;
+				ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+				for (let i = 0; i < data.players.length; i++) {
+					if (data.players[i].hero_menu_open == false) {
+						continue;
+					}
+					let selection_x = (i == 0) ? 372 : 1112;
+					let selection_y = 899;
+					ctx.drawImage(selection_mask, selection_x, selection_y + (data.players[i].hero_menu_selection * 36));
+					if (!data.players[i].hero_menu_selected) {
+						ctx.drawImage(selector_mask, selection_x + 19, selection_y);
+					}
+				}
+
+				var p1Found = false;
+
+				if (data.is_match) {
+					for (let i = 0; i < data.players.length; i++) {
+						let player = data.players[i];
+						if (player.is_in_game == false) {
+							continue;
+						}
+
+						ctx.beginPath();
+						let gradient = ctx.createRadialGradient(player.x, player.y, 5, player.x, player.y, 70);
+						gradient.addColorStop(0, 'white');
+						gradient.addColorStop(1, 'transparent');
+
+						ctx.arc(player.x, player.y, 60, 0, 2 * Math.PI);
+						ctx.fillStyle = gradient;
+						ctx.fill();
+						ctx.closePath();
+
+						if (p1Found == false) {
+							p1Found = true;
+							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 354, 856);
+						} else {
+							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 1093, 856);
+						}
+					}
+				}
+			};
+
+			const imageCache = new Map(); // Cache for storing loaded images
+
+			function drawWhiteImageWithAlpha(imageSrc, visibleCanvasId, x, y) {
+				const visibleCanvas = document.getElementById(visibleCanvasId);
+				const visibleCtx = visibleCanvas.getContext('2d');
+
+				// Check if the image is already cached
+				if (imageCache.has(imageSrc)) {
+					const cachedImageData = imageCache.get(imageSrc);
+					visibleCtx.drawImage(cachedImageData.canvas, x, y, cachedImageData.canvas.width, cachedImageData.canvas.height);
+					return;
+				}
+
+				// Create a hidden canvas
+				const hiddenCanvas = document.createElement('canvas');
+				const hiddenCtx = hiddenCanvas.getContext('2d');
+
+				// Load the image
+				const img = new Image();
+				img.src = imageSrc;
+
+				img.onload = function () {
+					// Set the size of the hidden canvas to the image size
+					hiddenCanvas.width = img.width;
+					hiddenCanvas.height = img.height;
+
+					// Draw the image onto the hidden canvas
+					hiddenCtx.drawImage(img, 0, 0);
+
+					// Get the image data from the hidden canvas
+					const imageData = hiddenCtx.getImageData(0, 0, hiddenCanvas.width, hiddenCanvas.height);
+					const data = imageData.data;
+
+					// Modify the image data to make it white while preserving the alpha channel
+					for (let i = 0; i < data.length; i += 4) {
+						// Set Red, Green, and Blue channels to 255 (white)
+						data[i] = 255;     // Red
+						data[i + 1] = 255; // Green
+						data[i + 2] = 255; // Blue
+						// Alpha channel remains unchanged
+					}
+
+					// Put the modified image data back to the hidden canvas
+					hiddenCtx.putImageData(imageData, 0, 0);
+
+					// Cache the result
+					imageCache.set(imageSrc, { canvas: hiddenCanvas });
+
+					// Draw the modified image onto the visible canvas
+					visibleCtx.drawImage(hiddenCanvas, x, y, img.width, img.height);
+
+					// Optionally, remove the hidden canvas
+					//hiddenCanvas.remove();
+				};
+			}
+			ws.onerror = function (error) {
+				console.log('WebSocket error: ' + error);
+			};
+
+			ws.onclose = function (event) {
+				console.log('Connection is closed');
+			};
+		})();
+	</script>
+</body>
+
+</html>

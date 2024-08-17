@@ -17,7 +17,7 @@
 	"CAM_P1_SCENE": "cam-p1",
 	"CAM_P2_SCENE": "cam-p2",
 	"LOAD_PLAYERS_IF_NO_SET": true,
-	"LOAD_TAG_IF_NO_DB": false,
+	"LOAD_TAG_IF_NO_DB": true,
 	"USE_PLAYER_CAMS": true,
 	"ONLY_PLAYER_CAMS_WITH_COMMENTARY": false,
 	"GO_TO_BRACKET_ON_INACTIVE": false,
