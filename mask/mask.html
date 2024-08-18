@@ -80,8 +80,14 @@
 						if (p1Found == false) {
 							p1Found = true;
 							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 354, 856);
+							for (let i = 0; i < player.stocks; i++) {
+								drawWhiteImageWithAlpha(`assets/stock_icon/chara_2_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 475 + (i * 26), 1037, 26, 26);
+							}
 						} else {
 							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 1093, 856);
+							for (let i = 0; i < player.stocks; i++) {
+								drawWhiteImageWithAlpha(`assets/stock_icon/chara_2_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 1215 + (i * 26), 1037, 26, 26);
+							}
 						}
 					}
 				}
@@ -89,14 +95,14 @@
 
 			const imageCache = new Map(); // Cache for storing loaded images
 
-			function drawWhiteImageWithAlpha(imageSrc, visibleCanvasId, x, y) {
+			function drawWhiteImageWithAlpha(imageSrc, visibleCanvasId, x, y, width, height) {
 				const visibleCanvas = document.getElementById(visibleCanvasId);
 				const visibleCtx = visibleCanvas.getContext('2d');
 
 				// Check if the image is already cached
 				if (imageCache.has(imageSrc)) {
 					const cachedImageData = imageCache.get(imageSrc);
-					visibleCtx.drawImage(cachedImageData.canvas, x, y, cachedImageData.canvas.width, cachedImageData.canvas.height);
+					visibleCtx.drawImage(cachedImageData.canvas, x, y, width || cachedImageData.canvas.width, height || cachedImageData.canvas.height);
 					return;
 				}
 
@@ -136,7 +142,7 @@
 					imageCache.set(imageSrc, { canvas: hiddenCanvas });
 
 					// Draw the modified image onto the visible canvas
-					visibleCtx.drawImage(hiddenCanvas, x, y, img.width, img.height);
+					visibleCtx.drawImage(hiddenCanvas, x, y, width || img.width, height || img.height);
 
 					// Optionally, remove the hidden canvas
 					//hiddenCanvas.remove();
