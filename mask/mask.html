@@ -37,6 +37,8 @@
 			const canvas = document.getElementById('myCanvas');
 			const ctx = canvas.getContext('2d');
 
+			const previousStocks = {};
+
 			ws.onopen = function (event) {
 				console.log('Connection is open');
 			};
@@ -77,18 +79,36 @@
 						ctx.fill();
 						ctx.closePath();
 
+						let playerId;
+						let charaX, charaY, stockX, stockY;
+
 						if (p1Found == false) {
 							p1Found = true;
-							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 354, 856);
-							for (let i = 0; i < player.stocks; i++) {
-								drawWhiteImageWithAlpha(`assets/stock_icon/chara_2_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 475 + (i * 26), 1037, 26, 26);
-							}
+							playerId = 'p1';
+							charaX = 355;
+							charaY = 856;
+							stockX = 475;
+							stockY = 1037;
 						} else {
-							drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 1093, 856);
-							for (let i = 0; i < player.stocks; i++) {
-								drawWhiteImageWithAlpha(`assets/stock_icon/chara_2_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', 1215 + (i * 26), 1037, 26, 26);
-							}
+							playerId = 'p2';
+							charaX = 1094;
+							charaY = 856;
+							stockX = 1215;
+							stockY = 1037;
 						}
+
+						drawWhiteImageWithAlpha(`assets/character_icon/chara_4_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', charaX, charaY);
+						for (let j = 0; j < player.stocks; j++) {
+							drawWhiteImageWithAlpha(`assets/stock_icon/chara_2_${characters[player.character]}_0${player.skin}.png`, 'myCanvas', stockX + (j * 26), stockY, 26, 26);
+						}
+
+						// Check if a stock is lost
+						if (previousStocks[playerId] !== undefined && player.stocks < previousStocks[playerId] && player.stocks > 0) {
+							drawReviveAnimation(playerId, ctx);
+						}
+
+						// Update the previous stock count
+						previousStocks[playerId] = player.stocks;
 					}
 				}
 			};
@@ -148,6 +168,49 @@
 					//hiddenCanvas.remove();
 				};
 			}
+
+			function drawReviveAnimation(player, ctx) {
+				const frameCount = 14;
+				const frameDuration = 1000 / 60; // 60 fps
+				const frames = Array.from({ length: frameCount }, (_, i) => `assets/revive/${player}/frame_${i.toString().padStart(2, '0')}.png`);
+
+				setTimeout(async () => {
+					for (let i = 1; i < frameCount; i++) {
+						const img = await loadImage(frames[i]);
+						// ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height); // Clear the canvas
+						ctx.drawImage(img, 0, 0, ctx.canvas.width, ctx.canvas.height); // Draw the frame
+						await new Promise(requestAnimationFrame); // Wait for the next frame
+					}
+				}, 1200); // 1.05 seconds delay
+			}
+
+			function loadImage(src) {
+				return new Promise((resolve, reject) => {
+					if (imageCache.has(src)) {
+						resolve(imageCache.get(src));
+					} else {
+						const img = new Image();
+						img.onload = () => {
+							imageCache.set(src, img);
+							resolve(img);
+						};
+						img.onerror = reject;
+						img.src = src;
+					}
+				});
+			}
+
+			
+			// Preload all frames for both p1 and p2
+			const frameCount = 14;
+            const players = ['p1', 'p2'];
+            for (const player of players) {
+                for (let i = 1; i < frameCount; i++) {
+                    const frameSrc = `assets/revive/${player}/frame_${i.toString().padStart(2, '0')}.png`;
+                    await loadImage(frameSrc);
+                }
+            }
+
 			ws.onerror = function (error) {
 				console.log('WebSocket error: ' + error);
 			};
