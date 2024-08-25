@@ -215,6 +215,11 @@ const PORT_COLORS = [
 
 async function tshLoadSet(info) {
 	console.log(`Called tshLoadSet at ${new Date()}\n`);
+	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+	if(program_state.score[1].match == "Grand Final Reset") {
+		console.log("It's grands reset, no need to ever load another set")
+		return;
+	}
 
 	var players = JSON.parse(JSON.stringify(info.players));
 	// console.log(tags)
@@ -580,6 +585,8 @@ var previousInfo = null;
 var countInfoPerSec = 0;
 var lowestCount = 99;
 
+var lockScoreUpdate = false;
+
 setInterval(() => {
 	if(webSocketInfo.switchConnected == 1) {
 		// console.log(countInfoPerSec)
@@ -813,7 +820,7 @@ function connectToSwitch() {
 									}
 								}
 
-								if(winningPlayer) {
+								if(winningPlayer && lockScoreUpdate == false) {
 									if (winningPlayer.name.toLowerCase() == p1) {
 										console.log(`${p1} won at ${new Date()}`);
 										await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team0-scoreup');
@@ -822,6 +829,29 @@ function connectToSwitch() {
 										await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team1-scoreup');
 									} else {
 										console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`)
+									}
+									let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+									if(program_state.score[1].match = "Grand Final") {
+										if((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true)) {
+											lockScoreUpdate = true;
+											// await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-match');
+											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=1');
+											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=2');
+											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=5&match=Grand Final Reset');
+											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-scores');
+											lockScoreUpdate = false;
+											if(webSocketInfo.obsConnected == 1) {
+												obs.call('GetStreamStatus').then((response) => {
+													if(response.outputActive && timestampsFileName != undefined) {
+														let timestamp = `${response.outputTimecode.split(".")[0]} - Grand Final Reset - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+														fs.appendFile(timestampsFileName, timestamp, (err) => {
+															if (err) throw err;
+															console.log(timestamp);
+														});
+													}
+												})
+											}
+										}
 									}
 								}
 							}
