@@ -313,7 +313,15 @@ async function tshLoadSet(info) {
 				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team1-color-${PORT_COLORS[p1found]}`);
 				await makeHttpRequest(`http://${CONFIG.TSH_IP}:${CONFIG.TSH_PORT}/scoreboard0-team0-color-${PORT_COLORS[p2found]}`);
 			}
-
+			let match_info = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-match-' + set.id);
+			console.log(match_info.top_n)
+			if(match_info.top_n <= CONFIG.TOP_N_BO5) {
+				console.log("bo5")
+				await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=5');
+			} else {
+				console.log("bo3")
+				await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=3');
+			}
 			break;
 		}
 	}

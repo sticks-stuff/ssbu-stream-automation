@@ -56,6 +56,13 @@
 		width: 20%;
 		flex: 1;
 	}
+	#bo5 {
+		justify-content: left !important;
+	}
+	#top-n-bo5 {
+		flex: unset !important;
+		width: 60px !important;
+	}
 	
 </style>
 <body>
@@ -86,6 +93,11 @@
 		</div>
 		<div id="obs-error" class="hidden"></div>
 		<br>
+		<div id="bo5">
+			<div class="big">TOP&nbsp;</div>
+			<input class="big" id="top-n-bo5" placeholder="8"></input>
+			<div class="big">&nbsp;BO5</div>
+		</div>
 	</div>
 	<button id="update-bracket" class="big" onclick="updateBracket()">UPDATE BRACKET</button>
 	<button id="update-bracket" class="big" onclick="swapCams()">SWAP CAMS</button>
@@ -114,6 +126,7 @@
 		document.getElementById('obs-ip').value = config.OBS_IP;
 		document.getElementById('obs-port').value = config.OBS_PORT;
 		document.getElementById('obs-password').value = config.OBS_PASSWORD;
+		document.getElementById('top-n-bo5').value = config.TOP_N_BO5;
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
 			config.SWITCH_IP = this.value;
@@ -151,6 +164,11 @@
 
 		document.getElementById('obs-password').addEventListener('change', function() {
 			config.OBS_PASSWORD = this.value;
+			updateEnv();
+		});
+
+		document.getElementById('top-n-bo5').addEventListener('change', function() {
+			config.TOP_N_BO5 = parseInt(this.value);
 			updateEnv();
 		});
 
