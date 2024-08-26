@@ -688,15 +688,33 @@ function connectToSwitch() {
 
 					if (currentSet != null && currentSet !== oldSet) {
 						obs.call('GetStreamStatus').then((response) => {
-							if(response.outputActive && timestampsFileName != undefined) {
+							if (response.outputActive && timestampsFileName != undefined) {
 								let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
-								fs.appendFile(timestampsFileName, timestamp, (err) => {
-									if (err) throw err;
-									console.log(timestamp);
+					
+								// Read the last line of the file
+								const rl = readline.createInterface({
+									input: fs.createReadStream(timestampsFileName),
+									output: process.stdout,
+									terminal: false
 								});
-								
+					
+								let lastLine = '';
+								rl.on('line', (line) => {
+									lastLine = line;
+								});
+					
+								rl.on('close', () => {
+									// Compare the last line with the new timestamp
+									if (lastLine.split(" - ")[1] !== timestamp.split(" - ")[1]) {
+										// Append the new timestamp if it is not a duplicate
+										fs.appendFile(timestampsFileName, timestamp, (err) => {
+											if (err) throw err;
+											console.log(timestamp);
+										});
+									}
+								});
 							}
-						})
+						});
 						oldSet = currentSet;
 					}
 				}
