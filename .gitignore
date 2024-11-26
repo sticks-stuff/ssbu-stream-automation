@@ -88,3 +88,5 @@ dist/
 .vscode/
 
 timestamps/*.txt
+config.json
+twitch_tokens.json

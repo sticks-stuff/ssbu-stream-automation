@@ -98,6 +98,12 @@
 			<input class="big" id="top-n-bo5" placeholder="8"></input>
 			<div class="big">&nbsp;BO5</div>
 		</div>
+		<br>
+		<div id="twitch-integrate" style="justify-content: revert;">
+			<div class="big">TWITCH INTEGRATE</div>
+			<input class="big" style="width: 63px !important; flex: revert;" type="checkbox" id="twitch-integrate-checkbox">
+		</div>
+		<br>
 	</div>
 	<button id="update-bracket" class="big" onclick="updateBracket()">UPDATE BRACKET</button>
 	<button id="update-bracket" class="big" onclick="swapCams()">SWAP CAMS</button>
@@ -127,6 +133,7 @@
 		document.getElementById('obs-port').value = config.OBS_PORT;
 		document.getElementById('obs-password').value = config.OBS_PASSWORD;
 		document.getElementById('top-n-bo5').value = config.TOP_N_BO5;
+		document.getElementById('twitch-integrate-checkbox').checked = config.TWITCH_INTEGRATE;
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
 			config.SWITCH_IP = this.value;
@@ -169,6 +176,11 @@
 
 		document.getElementById('top-n-bo5').addEventListener('change', function() {
 			config.TOP_N_BO5 = parseInt(this.value);
+			updateEnv();
+		});
+
+		document.getElementById('twitch-integrate-checkbox').addEventListener('change', function() {
+			config.TWITCH_INTEGRATE = this.checked;
 			updateEnv();
 		});
 

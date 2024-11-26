@@ -9,7 +9,11 @@ import WebSocket from "ws";
 import { fileURLToPath } from 'url';
 import path from 'path';
 import {serializeError, deserializeError} from 'serialize-error';
+import readline from 'readline';
 import { setTimeout } from "timers/promises";
+import { RefreshingAuthProvider } from '@twurple/auth';
+import { ApiClient } from '@twurple/api';
+import { ChatClient } from '@twurple/chat';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -433,9 +437,14 @@ async function connectToOBS() {
 			}
 		});
 
-		await obs.call('GetStreamStatus').then((response) => {
+		await obs.call('GetStreamStatus').then(async (response) => {
 			if(response.outputActive) {
 				createTimestampsFile();
+			}
+			if (webSocketInfo.tshConnected == 1 && CONFIG.TWITCH_INTEGRATE) {
+				let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+				let tournamentUrl = settings.TOURNAMENT_URL;
+				sendMessage(`!commands edit !bracket ${tournamentUrl}`);
 			}
 		})
 
@@ -518,9 +527,14 @@ async function swapCams() {
     }
 }
 
-obs.on('StreamStateChanged', response => {
+obs.on('StreamStateChanged', async (response) => {
 	if(response.outputActive == true) {
 		createTimestampsFile();
+	}
+	if (webSocketInfo.tshConnected == 1 && CONFIG.TWITCH_INTEGRATE) {
+		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+		let tournamentUrl = settings.TOURNAMENT_URL;
+		sendMessage(`!commands edit !bracket ${tournamentUrl}`);
 	}
 })
 
@@ -594,6 +608,7 @@ var countInfoPerSec = 0;
 var lowestCount = 99;
 
 var lockScoreUpdate = false;
+var prediction = null;
 
 setInterval(() => {
 	if(webSocketInfo.switchConnected == 1) {
@@ -687,32 +702,78 @@ function connectToSwitch() {
 					}
 
 					if (currentSet != null && currentSet !== oldSet) {
-						obs.call('GetStreamStatus').then((response) => {
-							if (response.outputActive && timestampsFileName != undefined) {
-								let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
-					
-								// Read the last line of the file
-								const rl = readline.createInterface({
-									input: fs.createReadStream(timestampsFileName),
-									output: process.stdout,
-									terminal: false
-								});
-					
-								let lastLine = '';
-								rl.on('line', (line) => {
-									lastLine = line;
-								});
-					
-								rl.on('close', () => {
-									// Compare the last line with the new timestamp
-									if (lastLine.split(" - ")[1] !== timestamp.split(" - ")[1]) {
-										// Append the new timestamp if it is not a duplicate
-										fs.appendFile(timestampsFileName, timestamp, (err) => {
-											if (err) throw err;
-											console.log(timestamp);
+						obs.call('GetStreamStatus').then(async (response) => {
+							if (response.outputActive) {
+								if (timestampsFileName != undefined) {
+									let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+						
+									// Read the last line of the file
+									const rl = readline.createInterface({
+										input: fs.createReadStream(timestampsFileName),
+										output: process.stdout,
+										terminal: false
+									});
+						
+									let lastLine = '';
+									rl.on('line', (line) => {
+										lastLine = line;
+									});
+						
+									rl.on('close', () => {
+										// Compare the last line with the new timestamp
+										if (lastLine.split(" - ")[1] !== timestamp.split(" - ")[1]) {
+											// Append the new timestamp if it is not a duplicate
+											fs.appendFile(timestampsFileName, timestamp, (err) => {
+												if (err) throw err;
+												console.log(timestamp);
+											});
+										}
+									});
+								}
+								if (CONFIG.TWITCH_INTEGRATE) {
+									try {
+										prediction = await apiClient.predictions.createPrediction(twitchUser, {
+											autoLockAfter: 60,
+											title: `Who will win ${currentSet.round_name}?`,
+											outcomes: [
+												currentSet.p1_name,
+												currentSet.p2_name
+											]
 										});
+									
+										console.log('Prediction created:', prediction);
+									} catch (error) {
+										if (error._body && error._body.includes('prediction event already active')) {
+											console.log('An active prediction already exists. Ending it...');
+								
+											// Fetch the active prediction
+											const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+											if (activePredictions.data.length > 0) {
+												const activePrediction = activePredictions.data[0];
+								
+												// End the active prediction
+												await apiClient.predictions.cancelPrediction(twitchUser, activePrediction.id, 'CANCELED');
+												console.log('Active prediction ended:', activePrediction);
+								
+												// Create a new prediction
+												prediction = await apiClient.predictions.createPrediction(twitchUser, {
+													autoLockAfter: 1,
+													title: `Who will win ${currentSet.round_name}?`,
+													outcomes: [
+														currentSet.p1_name,
+														currentSet.p2_name
+													]
+												});
+								
+												console.log('New prediction created:', prediction);
+											} else {
+												console.error('No active prediction found to end.');
+											}
+										} else {
+											console.error('Error creating prediction:', error);
+										}
 									}
-								});
+								}
 							}
 						});
 						oldSet = currentSet;
@@ -847,6 +908,7 @@ function connectToSwitch() {
 								}
 
 								if(winningPlayer && lockScoreUpdate == false) {
+									lockScoreUpdate = true;
 									if (winningPlayer.name.toLowerCase() == p1) {
 										console.log(`${p1} won at ${new Date()}`);
 										await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team0-scoreup');
@@ -857,28 +919,114 @@ function connectToSwitch() {
 										console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`)
 									}
 									let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+
+									if (program_state.best_of != 0) {
+										let win_score = Math.ceil(program_state.score[1].best_of / 2);
+										if((program_state.score[1].team[1].score >= win_score) || (program_state.score[1].team[2].score >= win_score)) {
+											let winningOutcomeName;
+											var isSwapped = await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-get-swap');
+											console.log({isSwapped})
+											if (winningPlayer.name.toLowerCase() == p1) {
+												if (isSwapped == "True") {
+													winningOutcomeName = currentSet.p1_name;
+												} else {
+													winningOutcomeName = currentSet.p2_name;
+												}
+											} else {												
+												if(winningPlayer.name.toLowerCase() == p2) {
+													if (isSwapped == "True") {
+														winningOutcomeName = currentSet.p2_name;
+													} else {
+														winningOutcomeName = currentSet.p1_name;
+													}
+												}
+											}
+
+											const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+
+											if (activePredictions.data.length > 0) {
+												const activePrediction = activePredictions.data[0];
+												
+												const winningOutcome = activePrediction.outcomes.find(outcome => outcome.title === winningOutcomeName);
+
+												if (winningOutcome) {
+													const result = await apiClient.predictions.resolvePrediction(twitchUser, activePrediction.id, winningOutcome.id);
+													console.log('Prediction rewarded:', winningOutcomeName);
+												} else {
+													console.error('Winning outcome not found');
+												}
+											} else {
+												console.error('No active prediction found to reward.');
+											}
+										}
+									}
+
 									if(program_state.score[1].match = "Grand Final") {
 										if((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true)) {
-											lockScoreUpdate = true;
 											// await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-match');
 											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=1');
 											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=2');
 											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=5&match=Grand Final Reset');
 											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-scores');
-											lockScoreUpdate = false;
 											if(webSocketInfo.obsConnected == 1) {
-												obs.call('GetStreamStatus').then((response) => {
+												obs.call('GetStreamStatus').then(async (response) => {
 													if(response.outputActive && timestampsFileName != undefined) {
 														let timestamp = `${response.outputTimecode.split(".")[0]} - Grand Final Reset - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
 														fs.appendFile(timestampsFileName, timestamp, (err) => {
 															if (err) throw err;
 															console.log(timestamp);
 														});
+
+														if (CONFIG.TWITCH_INTEGRATE) {
+															try {
+																prediction = await apiClient.predictions.createPrediction(twitchUser, {
+																	autoLockAfter: 60,
+																	title: `Who will win Grand Final Reset?`,
+																	outcomes: [
+																		currentSet.p1_name,
+																		currentSet.p2_name
+																	]
+																});
+															
+																console.log('Prediction created:', prediction);
+															} catch (error) {
+																if (error._body && error._body.includes('prediction event already active')) {
+																	console.log('An active prediction already exists. Ending it...');
+														
+																	// Fetch the active prediction
+																	const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+																	if (activePredictions.data.length > 0) {
+																		const activePrediction = activePredictions.data[0];
+														
+																		// End the active prediction
+																		await apiClient.predictions.cancelPrediction(twitchUser, activePrediction.id, 'CANCELED');
+																		console.log('Active prediction ended:', activePrediction);
+														
+																		// Create a new prediction
+																		prediction = await apiClient.predictions.createPrediction(twitchUser, {
+																			autoLockAfter: 1,
+																			title: `Who will win Grand Final Reset?`,
+																			outcomes: [
+																				currentSet.p1_name,
+																				currentSet.p2_name
+																			]
+																		});
+														
+																		console.log('New prediction created:', prediction);
+																	} else {
+																		console.error('No active prediction found to end.');
+																	}
+																} else {
+																	console.error('Error creating prediction:', error);
+																}
+															}
+														}
 													}
 												})
 											}
 										}
 									}
+									lockScoreUpdate = false;
 								}
 							}
 						}
@@ -940,4 +1088,31 @@ function disconnectFromTSH() {
 	webSocketInfo.tshError = "";
 	console.log('Disconnected from TSH');
 	updateGUI();
+}
+
+let sendMessage;
+let apiClient;
+let twitchUser;
+
+if (CONFIG.TWITCH_INTEGRATE) {
+	const tokenData = JSON.parse(await fs.promises.readFile('./twitch_tokens.json', 'utf-8'));
+	const authProvider = new RefreshingAuthProvider(
+		{
+			clientId: CONFIG.TWITCH_CLIENT_ID,
+			clientSecret: CONFIG.TWITCH_CLIENT_SECRET,
+		}
+	);
+
+	authProvider.onRefresh(async (userId, newTokenData) => await fs.writeFile(`./twitch_tokens.json`, JSON.stringify(newTokenData, null, 4), 'utf-8'));
+	await authProvider.addUserForToken(tokenData, ['chat', 'channel:manage:predictions', 'channel:read:predictions']);
+	const chatClient = new ChatClient({ authProvider, channels: [CONFIG.TWITCH_CHANNEL] });
+	apiClient = new ApiClient({ authProvider });
+
+	twitchUser = await apiClient.users.getUserByName(CONFIG.TWITCH_CHANNEL);
+
+	await chatClient.connect();
+
+	sendMessage = async function(message) {
+		await chatClient.say(CONFIG.TWITCH_CHANNEL, message);
+	};
 }
