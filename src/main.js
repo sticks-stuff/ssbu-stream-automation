@@ -548,16 +548,22 @@ obs.on('StreamStateChanged', async (response) => {
 
 function createTimestampsFile() {
 	const date = new Date();
-	// if (webSocketInfo.twitchConnected == 1) {
-		// timestampsFileName = 
+	if (webSocketInfo.twitchConnected == 1) {
+		apiClient.streams.getStreamByUserName(CONFIG.TWITCH_CHANNEL).then(async (stream) => {
+			timestampsFileName = path.resolve(__dirname, `../timestamps/${stream.id}.txt`);
+		});
+	} else {
 		timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
-	// } else {
-	// }
+	}
 
-	fs.writeFile(timestampsFileName, '', (err) => {
-		if (err) throw err;
-		console.log(`Created ${timestampsFileName}`);
-	});
+	if (!fs.existsSync(timestampsFileName)) {
+		fs.writeFile(timestampsFileName, '', (err) => {
+			if (err) throw err;
+			console.log(`Created ${timestampsFileName}`);
+		});
+	} else {
+		console.log(`${timestampsFileName} already exists`);
+	}
 }
 
 let resultsScreenStart = null;
