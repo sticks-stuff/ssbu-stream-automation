@@ -28,6 +28,7 @@ webSocketInfo.obsConnected = -1;
 webSocketInfo.tshConnected = -1;
 webSocketInfo.tshError = "";
 webSocketInfo.tshInfo = {};
+webSocketInfo.twitchConnected = -1;
 
 var CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../config.json'), 'utf8'));
 var tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
@@ -124,6 +125,13 @@ wss.on('connection', function connection(ws) {
 						response = { status: 'success', message: 'received swapCams' };
 					}
 					catch (e) {
+						response = { status: 'error', message: serializeError(e) };
+					}
+					break;
+				case 'twitch_code':
+					try {
+						connectToTwitch(messageObj.code);
+					} catch (e) {
 						response = { status: 'error', message: serializeError(e) };
 					}
 					break;
@@ -441,7 +449,7 @@ async function connectToOBS() {
 			if(response.outputActive) {
 				createTimestampsFile();
 			}
-			if (webSocketInfo.tshConnected == 1 && CONFIG.TWITCH_INTEGRATE) {
+			if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
 				let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
 				let tournamentUrl = settings.TOURNAMENT_URL;
 				sendMessage(`!commands edit !bracket ${tournamentUrl}`);
@@ -531,7 +539,7 @@ obs.on('StreamStateChanged', async (response) => {
 	if(response.outputActive == true) {
 		createTimestampsFile();
 	}
-	if (webSocketInfo.tshConnected == 1 && CONFIG.TWITCH_INTEGRATE) {
+	if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
 		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
 		let tournamentUrl = settings.TOURNAMENT_URL;
 		sendMessage(`!commands edit !bracket ${tournamentUrl}`);
@@ -540,7 +548,11 @@ obs.on('StreamStateChanged', async (response) => {
 
 function createTimestampsFile() {
 	const date = new Date();
-	timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
+	// if (webSocketInfo.twitchConnected == 1) {
+		// timestampsFileName = 
+		timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
+	// } else {
+	// }
 
 	fs.writeFile(timestampsFileName, '', (err) => {
 		if (err) throw err;
@@ -730,7 +742,7 @@ function connectToSwitch() {
 										}
 									});
 								}
-								if (CONFIG.TWITCH_INTEGRATE) {
+								if (webSocketInfo.twitchConnected == 1) {
 									try {
 										prediction = await apiClient.predictions.createPrediction(twitchUser, {
 											autoLockAfter: 60,
@@ -920,7 +932,7 @@ function connectToSwitch() {
 									}
 									let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
 
-									if (program_state.best_of != 0) {
+									if (program_state.best_of != 0 && currentSet) {
 										let win_score = Math.ceil(program_state.score[1].best_of / 2);
 										if((program_state.score[1].team[1].score >= win_score) || (program_state.score[1].team[2].score >= win_score)) {
 											let winningOutcomeName;
@@ -942,21 +954,31 @@ function connectToSwitch() {
 												}
 											}
 
-											const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+											if (webSocketInfo.twitchConnected == 1) {
+												const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
 
-											if (activePredictions.data.length > 0) {
-												const activePrediction = activePredictions.data[0];
-												
-												const winningOutcome = activePrediction.outcomes.find(outcome => outcome.title === winningOutcomeName);
+												if (activePredictions.data.length > 0) {
+													const activePrediction = activePredictions.data[0];
+													
+													const winningOutcome = activePrediction.outcomes.find(outcome => outcome.title === winningOutcomeName);
 
-												if (winningOutcome) {
-													const result = await apiClient.predictions.resolvePrediction(twitchUser, activePrediction.id, winningOutcome.id);
-													console.log('Prediction rewarded:', winningOutcomeName);
+													if (winningOutcome) {
+														try {
+															const result = await apiClient.predictions.resolvePrediction(twitchUser, activePrediction.id, winningOutcome.id);
+															console.log('Prediction rewarded:', result);
+														} catch (error) {
+															if (error._body && error._body.includes('prediction event has already ended')) {
+																console.error('Error: The prediction event has already ended.');
+															} else {
+																console.error('Error resolving prediction:', error);
+															}
+														}
+													} else {
+														console.error('Winning outcome not found');
+													}
 												} else {
-													console.error('Winning outcome not found');
+													console.error('No active prediction found to reward.');
 												}
-											} else {
-												console.error('No active prediction found to reward.');
 											}
 										}
 									}
@@ -977,7 +999,7 @@ function connectToSwitch() {
 															console.log(timestamp);
 														});
 
-														if (CONFIG.TWITCH_INTEGRATE) {
+														if (webSocketInfo.twitchConnected == 1) {
 															try {
 																prediction = await apiClient.predictions.createPrediction(twitchUser, {
 																	autoLockAfter: 60,
@@ -1094,25 +1116,83 @@ let sendMessage;
 let apiClient;
 let twitchUser;
 
-if (CONFIG.TWITCH_INTEGRATE) {
-	const tokenData = JSON.parse(await fs.promises.readFile('./twitch_tokens.json', 'utf-8'));
-	const authProvider = new RefreshingAuthProvider(
-		{
-			clientId: CONFIG.TWITCH_CLIENT_ID,
-			clientSecret: CONFIG.TWITCH_CLIENT_SECRET,
+async function connectToTwitch(code) {
+	console.log('Connecting to Twitch...');
+	const clientId = CONFIG.TWITCH_CLIENT_ID;
+	const clientSecret = CONFIG.TWITCH_CLIENT_SECRET;
+	const redirectUri = 'http://localhost.';
+
+	const url = 'https://id.twitch.tv/oauth2/token';
+	const params = new URLSearchParams();
+	params.append('client_id', clientId);
+	params.append('client_secret', clientSecret);
+	params.append('code', code);
+	params.append('grant_type', 'authorization_code');
+	params.append('redirect_uri', redirectUri);
+
+	try {
+		const response = await fetch(url, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			},
+			body: params
+		});
+
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
 		}
-	);
 
-	authProvider.onRefresh(async (userId, newTokenData) => await fs.writeFile(`./twitch_tokens.json`, JSON.stringify(newTokenData, null, 4), 'utf-8'));
-	await authProvider.addUserForToken(tokenData, ['chat', 'channel:manage:predictions', 'channel:read:predictions']);
-	const chatClient = new ChatClient({ authProvider, channels: [CONFIG.TWITCH_CHANNEL] });
-	apiClient = new ApiClient({ authProvider });
+		var data = await response.json();
+		data.accessToken = data.access_token;
+		data.refreshToken = data.refresh_token;
+		data.expiresIn = data.expires_in;
+		delete data.access_token;
+		delete data.refresh_token;
+		delete data.expires_in; //lmao
+		await fs.promises.writeFile('./twitch_tokens.json', JSON.stringify(data, null, 4), 'utf-8');
+		await connectToTwitchWithTokens();
+	} catch (error) {
+		console.error('Error connecting to Twitch:', error);
+	}
+}
 
-	twitchUser = await apiClient.users.getUserByName(CONFIG.TWITCH_CHANNEL);
+async function connectToTwitchWithTokens() {
+	console.log('Connecting to Twitch with tokens...');
+	try {
+		const tokenData = JSON.parse(await fs.promises.readFile('./twitch_tokens.json', 'utf-8'));
+		const authProvider = new RefreshingAuthProvider(
+			{
+				clientId: CONFIG.TWITCH_CLIENT_ID,
+				clientSecret: CONFIG.TWITCH_CLIENT_SECRET,
+			}
+		);
+	
+		authProvider.onRefresh(async (userId, newTokenData) => {
+			await fs.promises.writeFile('./twitch_tokens.json', JSON.stringify(newTokenData, null, 4), 'utf-8');
+		});
+	
+		await authProvider.addUserForToken(tokenData, ['chat', 'channel:manage:predictions', 'channel:read:predictions']);
+		const chatClient = new ChatClient({ authProvider, channels: [CONFIG.TWITCH_CHANNEL] });
+		apiClient = new ApiClient({ authProvider });
+	
+		twitchUser = await apiClient.users.getUserByName(CONFIG.TWITCH_CHANNEL);
+	
+		await chatClient.connect();
+	
+		sendMessage = async function(message) {
+			await chatClient.say(CONFIG.TWITCH_CHANNEL, message);
+		};
+		webSocketInfo.twitchConnected = 1;
+		updateGUI();
+		console.log('Connected to Twitch');
+	} catch (error) {
+		webSocketInfo.twitchConnected = 0;
+		updateGUI();
+		console.error('Error during Twitch integration setup:', error);
+	}
+}
 
-	await chatClient.connect();
-
-	sendMessage = async function(message) {
-		await chatClient.say(CONFIG.TWITCH_CHANNEL, message);
-	};
+if (CONFIG.TWITCH_CLIENT_ID && CONFIG.TWITCH_CLIENT_SECRET) {
+	connectToTwitchWithTokens();
 }

@@ -100,8 +100,11 @@
 		</div>
 		<br>
 		<div id="twitch-integrate" style="justify-content: revert;">
-			<div class="big">TWITCH INTEGRATE</div>
-			<input class="big" style="width: 63px !important; flex: revert;" type="checkbox" id="twitch-integrate-checkbox">
+			<div class="status-title">TWITCH</div>
+			<div id="twitch-status" class="status status-unknown"></div>
+			<input id="twitch-code" class="code-input" placeholder="http://localhost./?code=xxxxxxxx&scope=chat%3Aread+chat%3Aedit+channel%3Amanage%3Apredictions+channel%3Aread%3Apredictions"></input>
+			<a class="big" id="twitch-login-link" href="">LOGIN</a>
+			<button id="twitch-connect">CONNECT</button>
 		</div>
 		<br>
 	</div>
@@ -125,6 +128,8 @@
 		let config = await fetch("../config.json");
 		config = await config.json();
 
+		document.getElementById('twitch-login-link').href = `https://id.twitch.tv/oauth2/authorize?client_id=${config.TWITCH_CLIENT_ID}&redirect_uri=http://localhost.&response_type=code&scope=chat:read+chat:edit%20channel:manage:predictions%20channel:read:predictions`;
+
 		document.getElementById('switch-ip').value = config.SWITCH_IP;
 		document.getElementById('switch-port').value = config.SWITCH_PORT;
 		document.getElementById('tsh-ip').value = config.TSH_IP;
@@ -133,7 +138,6 @@
 		document.getElementById('obs-port').value = config.OBS_PORT;
 		document.getElementById('obs-password').value = config.OBS_PASSWORD;
 		document.getElementById('top-n-bo5').value = config.TOP_N_BO5;
-		document.getElementById('twitch-integrate-checkbox').checked = config.TWITCH_INTEGRATE;
 
 		document.getElementById('switch-ip').addEventListener('change', function() {
 			config.SWITCH_IP = this.value;
@@ -179,11 +183,6 @@
 			updateEnv();
 		});
 
-		document.getElementById('twitch-integrate-checkbox').addEventListener('change', function() {
-			config.TWITCH_INTEGRATE = this.checked;
-			updateEnv();
-		});
-
 		document.getElementById('switch-connect').addEventListener('click', function() {
 			if (this.textContent === 'CONNECT') {
 				sendCommand('connectToSwitch');
@@ -208,6 +207,11 @@
 			}
 		});
 
+		document.getElementById('twitch-connect').addEventListener('click', async function() {
+			console.log('clicked');
+			sendTwitchCode();
+		});
+
 		await connectWebSocket();
 
 		let prevStatus = null;
@@ -226,6 +230,7 @@
 						updateStatus('switch-status', status.switchConnected);
 						updateStatus('obs-status', status.obsConnected);
 						updateStatus('tsh-status', status.tshConnected);
+						updateStatus('twitch-status', status.twitchConnected);
 						prevStatus = status;
 					}
 
@@ -268,6 +273,8 @@
 				connectButton = document.getElementById('tsh-connect');
 			} else if (id === 'obs-status') {
 				connectButton = document.getElementById('obs-connect');
+			} else if (id === 'twitch-status') {
+				connectButton = document.getElementById('twitch-connect');
 			}
 
 			switch (status) {
@@ -312,6 +319,22 @@
 				env: JSON.stringify(config)
 			};
 			socket.send(JSON.stringify(message));
+		}
+
+		function sendTwitchCode() {
+			const regex = /[?&]code=([^&]+)/;
+			const match = document.getElementById('twitch-code').value.match(regex);
+
+			if (match) {
+				const code = match[1];
+				const message = {
+					command: 'twitch_code',
+					code: code
+				};
+				socket.send(JSON.stringify(message));
+			} else {
+				console.error('Code parameter not found in the URL');
+			}
 		}
 
 		window.swapCams = function() {
