@@ -291,7 +291,7 @@
 					if (connectButton) {
 						if(id === 'switch-status') {
 							connectButton.textContent = 'CLEAR CACHE';
-						} else {
+						} else if (id !== 'twitch-status') {
 							connectButton.textContent = 'DISCONNECT';
 						}
 					}

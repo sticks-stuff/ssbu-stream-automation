@@ -14,6 +14,7 @@ import { setTimeout } from "timers/promises";
 import { RefreshingAuthProvider } from '@twurple/auth';
 import { ApiClient } from '@twurple/api';
 import { ChatClient } from '@twurple/chat';
+import { Webhook } from 'discord-webhook-node';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,11 @@ webSocketInfo.twitchConnected = -1;
 var CONFIG = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../config.json'), 'utf8'));
 var tags = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'tags.json'), 'utf8'));
 var characters = JSON.parse(fs.readFileSync(path.resolve(__dirname, 'characters.json'), 'utf8'));
+
+let webhook = null;
+if (CONFIG.DISCORD_WEBHOOK_URL != "") {
+	webhook = new Webhook(CONFIG.DISCORD_WEBHOOK_URL);
+}
 
 wss.on('connection', function connection(ws) {
 	ws.on('error', console.error);
@@ -255,8 +261,8 @@ async function tshLoadSet(info) {
 	}
 
 	const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets');
-	var foundSet = false;
 	// const setData = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/get-sets?getFinished');
+	var foundSet = false;
 
 	for (const set of setData) {
 		var editedSet = JSON.parse(JSON.stringify(set));
@@ -411,6 +417,8 @@ let CAM_LEFT_P2;
 let CAM_RIGHT_P1;
 let CAM_RIGHT_P2;
 
+let isStreaming = false;
+
 async function connectToOBS() {
     try {
         await obs.connect(`ws://${CONFIG.OBS_IP}:${CONFIG.OBS_PORT}`, CONFIG.OBS_PASSWORD);
@@ -446,15 +454,19 @@ async function connectToOBS() {
 		});
 
 		await obs.call('GetStreamStatus').then(async (response) => {
-			if(response.outputActive) {
+			if (response.outputActive && !isStreaming) {
+				isStreaming = true;
 				createTimestampsFile();
+				if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
+					let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+					let tournamentUrl = settings.TOURNAMENT_URL;
+					sendMessage(`!commands edit !bracket ${tournamentUrl}`);
+					createStreametaJson();
+				}
+			} else if (!response.outputActive && isStreaming) {
+				isStreaming = false;
 			}
-			if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
-				let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
-				let tournamentUrl = settings.TOURNAMENT_URL;
-				sendMessage(`!commands edit !bracket ${tournamentUrl}`);
-			}
-		})
+		});
 
 		console.log('Connected to OBS');
 		webSocketInfo.obsConnected = 1;
@@ -535,22 +547,53 @@ async function swapCams() {
     }
 }
 
+function secondsToTimecode(seconds) {
+	const hours = Math.floor(seconds / 3600);
+	const minutes = Math.floor((seconds % 3600) / 60);
+	const remainingSeconds = seconds % 60;
+
+	const pad = (num) => String(num).padStart(2, '0');
+
+	return `${pad(hours)}:${pad(minutes)}:${pad(remainingSeconds)}`;
+}
+
 obs.on('StreamStateChanged', async (response) => {
-	if(response.outputActive == true) {
+	if (response.outputActive && !isStreaming) {
+		isStreaming = true;
 		createTimestampsFile();
+		if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
+			let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+			let tournamentUrl = settings.TOURNAMENT_URL;
+			sendMessage(`!commands edit !bracket ${tournamentUrl}`);
+			createStreametaJson();
+		}
+	} else if (!response.outputActive && isStreaming) {
+		isStreaming = false;
+		if (streametaJson != null) {
+			if (streametaJson.sets[streametaJson.sets.length - 1].end_time == "null") {
+				apiClient.videos.getVideosByUser(twitchUser, { limit: 1 }).then((stream) => {
+					streametaJson.sets[streametaJson.sets.length - 1].end_time = secondsToTimecode(stream.data[0].durationInSeconds); // really hacky and untested way to just set the final set to end at the stream end time
+				});
+			}
+		}
+
+		if (streametaJsonFileName != null) {
+			webhook.sendFile(streametaJsonFileName);
+		}
+		if (timestampsFileName != null) {
+			webhook.sendFile(timestampsFileName);
+		}
 	}
-	if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
-		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
-		let tournamentUrl = settings.TOURNAMENT_URL;
-		sendMessage(`!commands edit !bracket ${tournamentUrl}`);
-	}
-})
+});
+
+var broadcastId;
 
 function createTimestampsFile() {
 	const date = new Date();
 	if (webSocketInfo.twitchConnected == 1) {
 		apiClient.streams.getStreamByUserName(CONFIG.TWITCH_CHANNEL).then(async (stream) => {
-			timestampsFileName = path.resolve(__dirname, `../timestamps/${stream.id}.txt`);
+			broadcastId = stream.id;
+			timestampsFileName = path.resolve(__dirname, `../timestamps/${broadcastId}.txt`);
 		});
 	} else {
 		timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
@@ -564,6 +607,40 @@ function createTimestampsFile() {
 	} else {
 		console.log(`${timestampsFileName} already exists`);
 	}
+}
+
+var streametaJsonFileName = null;
+var streametaJson = null;
+var bracketUrl;
+
+async function createStreametaJson() {
+	let stream = await apiClient.streams.getStreamByUserName(CONFIG.TWITCH_CHANNEL);
+	broadcastId = stream.id;
+	streametaJsonFileName = path.resolve(__dirname, `../streameta/${broadcastId}.json`);
+	if (!fs.existsSync(streametaJsonFileName)) {
+		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+		let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+		streametaJson = {};
+		streametaJson.name = program_state.tournamentInfo.tournamentName;
+		streametaJson.channel = CONFIG.TWITCH_CHANNEL;
+		streametaJson.ytChannelId = CONFIG.YT_CHANNEL_ID;
+		streametaJson.sets = [];
+		bracketUrl = settings.TOURNAMENT_URL;
+		updateStreametaJson();
+	} else {
+		console.log(`${streametaJsonFileName} already exists`);
+		fs.readFile(streametaJsonFileName, 'utf8', (err, data) => {
+			if (err) throw err;
+			streametaJson = JSON.parse(data);
+		});
+	}
+}
+
+function updateStreametaJson() {
+	fs.writeFile(streametaJsonFileName, JSON.stringify(streametaJson, null, 4), (err) => {
+		if (err) throw err;
+		console.log(`Updated ${streametaJsonFileName}`);
+	});
 }
 
 let resultsScreenStart = null;
@@ -627,6 +704,21 @@ var lowestCount = 99;
 
 var lockScoreUpdate = false;
 var prediction = null;
+
+function addSecondsToTimecode(timecode, seconds) {
+	const [hours, minutes, secondsPart] = timecode.split(':').map(Number);
+	const date = new Date('1970-01-01T00:00:00Z');
+	date.setUTCHours(hours);
+	date.setUTCMinutes(minutes);
+	date.setUTCSeconds(secondsPart);
+
+	// Add the specified seconds
+	date.setUTCSeconds(date.getUTCSeconds() + seconds);
+
+	// Format back to HH:MM:SS
+	const newTimecode = date.toISOString().substr(11, 8);
+	return newTimecode;
+}
 
 setInterval(() => {
 	if(webSocketInfo.switchConnected == 1) {
@@ -790,6 +882,42 @@ function connectToSwitch() {
 										} else {
 											console.error('Error creating prediction:', error);
 										}
+									}
+									if(streametaJson != null) {
+										var set = {};
+										set.broadcast = broadcastId;
+										set.startTime = response.outputTimecode.split(".")[0];
+										set.end_time = "null";
+										var tournamentName = streametaJson.name;
+										if(tournamentName.includes("Pōneke Popoff")) {
+											tournamentName = tournamentName.replace("Pōneke Popoff", "PōP");
+										}
+										if(tournamentName.includes(" - ")) {
+											tournamentName = tournamentName = tournamentName.split(" - ")[0];
+										}
+										set.title = `${tournamentName}: ${currentSet.p1_name} vs ${currentSet.p2_name} (${currentSet.round_name})`;
+										if(bracketUrl == null) {
+											let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+											bracketUrl = settings?.TOURNAMENT_URL;
+										}
+										if (bracketUrl != null && bracketUrl != "") {
+											set.description = "Bracket: " + bracketUrl;
+										} else {
+											set.description = "";
+										}
+										set.tags = CONFIG.STREAMETA_TAGS;
+										set.notify = CONFIG.STREAMETA_NOTIFY;
+										if (streametaJson.sets.length > 0) {
+											if (streametaJson.sets[streametaJson.sets.length - 1].title != set.title) { // duplicate
+												if (streametaJson.sets[streametaJson.sets.length - 1].end_time == "null") {
+													streametaJson.sets[streametaJson.sets.length - 1].end_time = response.outputTimecode.split(".")[0]; // prev set never ended whoops lets just end it as the next one starts
+												}
+												streametaJson.sets.push(set);
+											}
+										} else {
+											streametaJson.sets.push(set);
+										}
+										updateStreametaJson();
 									}
 								}
 							}
@@ -985,11 +1113,31 @@ function connectToSwitch() {
 												} else {
 													console.error('No active prediction found to reward.');
 												}
+
+												if(streametaJson != null) {
+													if(webSocketInfo.obsConnected == 1) {
+														obs.call('GetStreamStatus').then(async (response) => {
+															if (response.outputActive) {
+																if (streametaJson.sets.length > 0) {
+																	if (program_state.score[1].match != "Grand Final") {																		
+																		streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
+																		updateStreametaJson();
+																	} else {
+																		if(!((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true))) { //worlds worst if statement
+																			streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
+																			updateStreametaJson();
+																		}
+																	}
+																}
+															}
+														});
+													}
+												}
 											}
 										}
 									}
 
-									if(program_state.score[1].match = "Grand Final") {
+									if(program_state.score[1].match == "Grand Final") {
 										if((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true)) {
 											// await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-match');
 											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=1');

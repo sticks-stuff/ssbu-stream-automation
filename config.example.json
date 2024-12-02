@@ -25,5 +25,9 @@
 	"TOP_N_BO5": 8,
 	"TWITCH_CLIENT_ID": "xxx",
 	"TWITCH_CLIENT_SECRET": "xxxx",
-	"TWITCH_CHANNEL": "xxx"
+	"TWITCH_CHANNEL": "respawnesportscentre",
+	"YT_CHANNEL_ID": "UC9vz2fjJ9J8bN2Z3jJ1H6DQ",
+	"STREAMETA_TAGS": "smash,gaming,tournament,competitive,smashbros,wellington",
+	"STREAMETA_NOTIFY": "0",
+	"DISCORD_WEBHOOK_URL": "https://discord.com/api/webhooks/xxx/xxx"
 }
