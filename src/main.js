@@ -571,7 +571,7 @@ obs.on('StreamStateChanged', async (response) => {
 		isStreaming = false;
 		if (streametaJson != null) {
 			if (streametaJson.sets[streametaJson.sets.length - 1].end_time == "null") {
-				apiClient.videos.getVideosByUser(twitchUser, { limit: 1 }).then((stream) => {
+				apiClient.videos.getVideosByUser(twitchUser, { limit: 1, type: "archive" }).then((stream) => {
 					streametaJson.sets[streametaJson.sets.length - 1].end_time = secondsToTimecode(stream.data[0].durationInSeconds); // really hacky and untested way to just set the final set to end at the stream end time
 				});
 			}
@@ -591,22 +591,30 @@ var broadcastId;
 function createTimestampsFile() {
 	const date = new Date();
 	if (webSocketInfo.twitchConnected == 1) {
-		apiClient.streams.getStreamByUserName(CONFIG.TWITCH_CHANNEL).then(async (stream) => {
-			broadcastId = stream.id;
+		apiClient.videos.getVideosByUser(twitchUser, { limit: 1, type: "archive" }).then((stream) => { // this might not work lol
+			broadcastId = stream.data[0].id;
 			timestampsFileName = path.resolve(__dirname, `../timestamps/${broadcastId}.txt`);
+			if (!fs.existsSync(timestampsFileName)) {
+				fs.writeFile(timestampsFileName, '', (err) => {
+					if (err) throw err;
+					console.log(`Created ${timestampsFileName}`);
+				});
+			} else {
+				console.log(`${timestampsFileName} already exists`);
+			}
 		});
 	} else {
 		timestampsFileName = path.resolve(__dirname, `../timestamps/Timestamps-${date.getDate()}-${date.getMonth()+1}-${date.getFullYear()}_${date.getHours()}-${date.getMinutes()}-${date.getSeconds()}.txt`);
+		if (!fs.existsSync(timestampsFileName)) {
+			fs.writeFile(timestampsFileName, '', (err) => {
+				if (err) throw err;
+				console.log(`Created ${timestampsFileName}`);
+			});
+		} else {
+			console.log(`${timestampsFileName} already exists`);
+		}
 	}
 
-	if (!fs.existsSync(timestampsFileName)) {
-		fs.writeFile(timestampsFileName, '', (err) => {
-			if (err) throw err;
-			console.log(`Created ${timestampsFileName}`);
-		});
-	} else {
-		console.log(`${timestampsFileName} already exists`);
-	}
 }
 
 var streametaJsonFileName = null;
@@ -614,8 +622,8 @@ var streametaJson = null;
 var bracketUrl;
 
 async function createStreametaJson() {
-	let stream = await apiClient.streams.getStreamByUserName(CONFIG.TWITCH_CHANNEL);
-	broadcastId = stream.id;
+	let stream = await apiClient.videos.getVideosByUser(twitchUser, { limit: 1, type: "archive" });
+	broadcastId = stream.data[0].id; // this might not work
 	streametaJsonFileName = path.resolve(__dirname, `../streameta/${broadcastId}.json`);
 	if (!fs.existsSync(streametaJsonFileName)) {
 		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
@@ -623,7 +631,7 @@ async function createStreametaJson() {
 		streametaJson = {};
 		streametaJson.name = program_state.tournamentInfo.tournamentName;
 		streametaJson.channel = CONFIG.TWITCH_CHANNEL;
-		streametaJson.ytChannelId = CONFIG.YT_CHANNEL_ID;
+		streametaJson.youtube_channel = CONFIG.YT_CHANNEL_ID;
 		streametaJson.sets = [];
 		bracketUrl = settings.TOURNAMENT_URL;
 		updateStreametaJson();
@@ -886,7 +894,7 @@ function connectToSwitch() {
 									if(streametaJson != null) {
 										var set = {};
 										set.broadcast = broadcastId;
-										set.startTime = response.outputTimecode.split(".")[0];
+										set.start_time = response.outputTimecode.split(".")[0];
 										set.end_time = "null";
 										var tournamentName = streametaJson.name;
 										if(tournamentName.includes("Pōneke Popoff")) {
