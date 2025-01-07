@@ -86,3 +86,8 @@ dist/
 # DynamoDB Local files
 .dynamodb/
 .vscode/
+
+timestamps/*.txt
+streameta/*.json
+config.json
+twitch_tokens.json

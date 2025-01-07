@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta charset="utf-8" />
+	<title>Getting started with JSON Form</title>
+	<script src="../node_modules/@json-editor/json-editor/dist/jsoneditor.js"></script>
+	<link rel="stylesheet" href="https://unpkg.com/spectre.css/dist/spectre.min.css" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.1/css/all.css" crossorigin="anonymous">
+	<style>
+		/* hack */
+		.json-editor-btntype-deletelast {
+			display: none;
+		}
+		.json-editor-btntype-deleteall {
+			display: none; 
+		}
+		.je-panel {
+			padding: 0;
+		}
+		h4 {
+			margin-bottom: 0;
+		}
+	</style>
+</head>
+
+<body>
+	<div id='editor_holder'></div>
+	<script src="gui.js"></script>
+	<script>
+		(async () => {
+			let schema = await fetch("schema.json");
+			schema = await schema.json();
+			let tags = await fetch("../src/tags.json");
+			tags = await tags.json();
+			const element = document.getElementById('editor_holder');
+			const editor = new JSONEditor(element, {
+				theme: 'spectre',
+				iconlib: "fontawesome5",
+				schema: schema,
+				no_additional_properties: true,
+				disable_edit_json: true,
+				disable_array_delete_all_rows: true,
+				disable_array_reorder: true,
+				disable_properties: true,
+				disable_array_delete_last_row: true
+			});
+			editor.on('ready',() => {
+				editor.setValue(tags);
+				editor.validate();
+			});
+			editor.on('change',() => {
+				const errors = editor.validate();
+				if (errors.length) {
+					document.write("Something real bad happened!: \n" + errors);
+				}
+				else {
+					if(JSON.stringify(editor.getValue()) != JSON.stringify(tags)) {
+						console.log('Sending new tags:', editor.getValue());
+						socket.send(JSON.stringify({ command: 'set_tags', tags: JSON.stringify(editor.getValue()) }));
+						tags = editor.getValue();
+					}
+				}
+			});
+			await connectWebSocket();
+			// listen for tag success
+			socket.addEventListener('message', function (event) {
+				console.log('Message from server: ', event.data);
+				const data = JSON.parse(event.data);
+				if (data.status === 'success' && data.message === 'tags.json written successfully') {
+					console.log('Tags updated successfully');
+				} else if (data.status === 'error') {
+					console.error('Error updating tags: ', data.message);
+				}
+			});
+		})();
+	</script>
+</body>
+
+</html>

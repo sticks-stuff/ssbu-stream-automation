@@ -1,7 +1,25 @@
 {
   "dependencies": {
+    "@json-editor/json-editor": "^2.13.1",
+    "@twurple/api": "^7.2.0",
+    "@twurple/auth": "^7.2.0",
+    "@twurple/chat": "^7.2.0",
     "axios": "^1.6.2",
+    "concurrently": "^8.2.2",
+    "discord-webhook-node": "^1.1.8",
     "obs-websocket-js": "^5.0.3",
-    "reconnecting-websocket": "^4.4.0"
+    "reconnecting-websocket": "^4.4.0",
+    "serialize-error": "^11.0.3",
+    "socket.io-client": "^4.7.4"
+  },
+  "nodemonConfig": {
+    "ignore": [
+      "*.json"
+    ]
+  },
+  "type": "module",
+  "exports": "./src/index.js",
+  "scripts": {
+    "dev": "concurrently --kill-others \"http-server -p 3911 -c-1\" \"nodemon src/main.js -e js\""
   }
 }
