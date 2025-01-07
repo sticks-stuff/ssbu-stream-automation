@@ -12,5 +12,7 @@ Uses my fork of [smush_info](https://github.com/sticks-stuff/smush_info) to auto
 - Changes scene on inactivity (no stage selected after results screen for >2 mins) and changes back upon selecting a stage. Used at locals to show the bracket
 - [Updates character data and costume live on the character select screen](https://twitter.com/stick_twt/status/1734134432091844786)
 - [Creates a dynamic mask for Hero's menu (see hero_menu.html) for use on bottom aligned overlays](https://twitter.com/stick_twt/status/1735232265763143938)
+- Login with Twitch and automatically change the !bracket command and make predictions
+- Output a Streameta compatible JSON that works with the Streameta [browser extension](https://streameta.com/extension/)
 
 Consider giving me some form of credit if you use this in a stream :) ([@stick_twt](https://twitter.com/stick_twt) on Twitter, or just sharlot)
