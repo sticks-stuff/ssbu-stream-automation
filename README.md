@@ -5,6 +5,7 @@ Uses my fork of [smush_info](https://github.com/sticks-stuff/smush_info) to auto
 - Changes OBS scenes based on the game
 - Hide TSH overlay when the number of human players is not 2
 - Loads set in TSH based on in-game tags
+- Adjust what tags are for what Start.gg username in a GUI
 - Auto flips the player positions in TSH to align them with the game
 - Changes player colour of TSH overlay based on port
 - Automatically updates the score in TSH on game end
