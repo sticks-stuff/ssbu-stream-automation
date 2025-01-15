@@ -739,516 +739,462 @@ setInterval(() => {
 	}
 }, 1000);
 
+function parseSwitchData(data) {
+	concat_data += data.toString();
+
+	if(data.toString().includes('\n')) {
+		try {
+			const info = JSON.parse(concat_data.toString());
+			concat_data = '';
+			return info;
+		} catch (error) {
+			// console.log('Could not parse JSON');
+			// console.log(data.toString());
+			invalidParseAttempts++;
+			if (invalidParseAttempts > maxInvalidParseAttempts) {
+				// console.log('Too many invalid parse attempts, resetting concat_data');
+				concat_data = '';
+			}
+			return null;
+		}
+	}
+	return null;
+}
+
+function updateWebSocketInfo(info) {
+	webSocketInfo.switchInfo = info;
+	countInfoPerSec++;
+	updateGUI();
+}
+
+async function handleMatchStart(info) {
+	oldMatchInfo = info.is_match;
+	if(webSocketInfo.tshConnected == 1) {
+		await updateChars(info.players); // just in case two people on different sets play the same character 
+	}
+	if(webSocketInfo.obsConnected == 1) {
+		if(webSocketInfo.tshConnected == 1 && CONFIG.USE_PLAYER_CAMS) {
+			if(CONFIG.ONLY_PLAYER_CAMS_WITH_COMMENTARY) {
+				isCommentary().then((hasCommentary) => {
+					obs.call('SetCurrentProgramScene', { 'sceneName': hasCommentary ? CONFIG.GAME_SCENE_PLAYERCAMS : CONFIG.GAME_SCENE });
+				});
+			} else {
+				obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
+			}
+		} else {
+			obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
+		}
+		handleNewSet();
+	}
+}
+
+function handleNewSet() {
+	if (currentSet != null && currentSet !== oldSet) {
+		obs.call('GetStreamStatus').then(async (response) => {
+			if (response.outputActive) {
+				await handleStreamActive(response);
+			}
+		});
+		oldSet = currentSet;
+	}
+}
+
+async function handleStreamActive(response) {
+	if (timestampsFileName != undefined) {
+		let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+		appendTimestampIfNotDuplicate(timestamp);
+	}
+	if (webSocketInfo.twitchConnected == 1) {
+		await createPrediction();
+		if (streametaJson != null) {
+			updateStreametaJsonWithSet(response);
+		}
+	}
+}
+
+function appendTimestampIfNotDuplicate(timestamp) {
+	const rl = readline.createInterface({
+		input: fs.createReadStream(timestampsFileName),
+		output: process.stdout,
+		terminal: false
+	});
+
+	let lastLine = '';
+	rl.on('line', (line) => {
+		lastLine = line;
+	});
+	
+	rl.on('close', () => {
+		// Compare the last line with the new timestamp
+		if (lastLine.split(" - ")[1] !== timestamp.split(" - ")[1]) {
+			// Append the new timestamp if it is not a duplicate
+			fs.appendFile(timestampsFileName, timestamp, (err) => {
+				if (err) throw err;
+				console.log(timestamp);
+			});
+		}
+	});
+}
+
+async function createPrediction() {
+	try {
+		prediction = await apiClient.predictions.createPrediction(twitchUser, {
+			autoLockAfter: 60,
+			title: `Who will win ${currentSet.round_name}?`,
+			outcomes: [currentSet.p1_name, currentSet.p2_name]
+		});
+		console.log('Prediction created:', prediction);
+	} catch (error) {
+		if (error._body && error._body.includes('prediction event already active')) {
+			await handleActivePrediction();
+		} else {
+			console.error('Error creating prediction:', error);
+		}
+	}
+}
+
+async function handleActivePrediction() {
+	console.log('An active prediction already exists. Ending it...');
+	const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+	if (activePredictions.data.length > 0) {
+		const activePrediction = activePredictions.data[0];
+		await apiClient.predictions.cancelPrediction(twitchUser, activePrediction.id, 'CANCELED');
+		console.log('Active prediction ended:', activePrediction);
+		await createPrediction();
+	} else {
+		console.error('No active prediction found to end.');
+	}
+}
+
+async function updateStreametaJsonWithSet(response) {
+	var set = {};
+	set.broadcast = broadcastId;
+	set.start_time = response.outputTimecode.split(".")[0];
+	set.end_time = "null";
+	var tournamentName = streametaJson.name;
+	if(tournamentName.includes("Pōneke Popoff")) {
+		tournamentName = tournamentName.replace("Pōneke Popoff", "PōP");
+	}
+	if(tournamentName.includes(" - ")) {
+		tournamentName = tournamentName = tournamentName.split(" - ")[0];
+	}
+	set.title = `${tournamentName}: ${currentSet.p1_name} vs ${currentSet.p2_name} (${currentSet.round_name})`;
+	if(bracketUrl == null) {
+		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
+		bracketUrl = settings?.TOURNAMENT_URL;
+	}
+	if (bracketUrl != null && bracketUrl != "") {
+		set.description = "Bracket: " + bracketUrl;
+	} else {
+		set.description = "";
+	}
+	set.tags = CONFIG.STREAMETA_TAGS;
+	set.notify = CONFIG.STREAMETA_NOTIFY;
+	if (streametaJson.sets.length > 0) {
+		if (streametaJson.sets[streametaJson.sets.length - 1].title != set.title) { // duplicate
+			if (streametaJson.sets[streametaJson.sets.length - 1].end_time == "null") {
+				streametaJson.sets[streametaJson.sets.length - 1].end_time = response.outputTimecode.split(".")[0]; // prev set never ended whoops lets just end it as the next one starts
+			}
+			streametaJson.sets.push(set);
+		}
+	} else {
+		streametaJson.sets.push(set);
+	}
+	updateStreametaJson();
+}
+
+function handleMatchEnd(info) {
+	oldMatchInfo = info.is_match;
+	if(webSocketInfo.obsConnected == 1) {
+		if(webSocketInfo.tshConnected == 1) {
+			isCommentary().then((hasCommentary) => {
+				obs.call('SetCurrentProgramScene', { 'sceneName': hasCommentary ? CONFIG.NOT_GAME_COMS_SCENE : CONFIG.NOT_GAME_SCENE });
+			});
+		} else {
+			obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
+		}
+	}
+}
+
+function handleResultsScreen(info) {
+	if (info.is_results_screen) {
+		if (resultsScreenStart === null) {
+			resultsScreenStart = Date.now();
+		} else if (CONFIG.GO_TO_BRACKET_ON_INACTIVE && Date.now() - resultsScreenStart > CONFIG.BRACKET_INACTIVITY_TIME) {
+			fetch('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/update-bracket')
+				.then(() => {
+					if (isAutoBracketScene === false) {
+						obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.BRACKET_SCENE });
+					}
+				})
+				.catch(error => console.error('Error resetting bracket:', error));
+			resultsScreenStart = null;
+			isAutoBracketScene = true;
+		}
+	} else {
+		resultsScreenStart = null;
+	}
+}
+
+function handleAutoBracketScene(info) {
+	if (isAutoBracketScene === true) {
+		let infoCopy = { ...info };
+		let previousInfoCopy = { ...previousInfo };
+		
+		delete infoCopy.playerX;
+		delete infoCopy.playerY;
+		delete previousInfoCopy.playerX;
+		delete previousInfoCopy.playerY; //player x and y pos is still updated on results screen
+
+		if (JSON.stringify(infoCopy) !== JSON.stringify(previousInfoCopy)) {
+			if(webSocketInfo.tshConnected == 1) {
+				isCommentary().then((hasCommentary) => {
+					obs.call('SetCurrentProgramScene', { 'sceneName': hasCommentary ? CONFIG.NOT_GAME_COMS_SCENE : CONFIG.NOT_GAME_SCENE });
+				});
+			} else {
+				obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
+			}
+			isAutoBracketScene = false;
+		}
+	}
+	previousInfo = JSON.parse(JSON.stringify(info));
+}
+
+async function handlePlayerUpdates(info) {
+	if (webSocketInfo.tshConnected == 1) {
+		if (oldPlayers === null) {
+			oldPlayers = JSON.parse(JSON.stringify(info.players));
+			await tshLoadSet(info);
+		}
+
+		for (let i = 0; i < oldPlayers.length; i++) {
+			const oldPlayer = oldPlayers[i];
+			const currentPlayer = info.players[i];
+
+			if (isPlayerChanged(oldPlayer, currentPlayer)) {
+				if (oldPlayer.name !== currentPlayer.name) {
+					await handlePlayerNameChange(info);
+				} else if (oldPlayer.stocks !== currentPlayer.stocks) {
+					await handlePlayerStockChange(currentPlayer);
+				} else {
+					await updateChars(info.players);
+					oldPlayers = JSON.parse(JSON.stringify(info.players));
+				}
+				break;
+			}
+		}
+	}
+}
+
+function isPlayerChanged(oldPlayer, currentPlayer) {
+	return oldPlayer.name !== currentPlayer.name ||
+		oldPlayer.stocks !== currentPlayer.stocks ||
+		oldPlayer.character !== currentPlayer.character ||
+		oldPlayer.skin !== currentPlayer.skin;
+}
+
+async function handlePlayerNameChange(info) {
+	oldPlayers = JSON.parse(JSON.stringify(info.players));
+	await tshLoadSet(info);
+}
+
+async function handlePlayerStockChange(currentPlayer) {
+	if (currentPlayer.stocks == 0) {
+		if (p1 != null && p2 != null) {
+			let winningPlayer = info.players.find(player => player.stocks > 0 && player.name != null);
+			if (winningPlayer && !lockScoreUpdate) {
+				lockScoreUpdate = true;
+				await updateScore(winningPlayer);
+				// console.log(`winng player name ${player.name} left`);
+				// console.log(`winng player had ${player.stocks} left`);
+				lockScoreUpdate = false;
+			}
+		}
+	}
+}
+
+async function updateScore(winningPlayer) {
+	if (winningPlayer.name.toLowerCase() == p1) {
+		console.log(`${p1} won at ${new Date()}`);
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team0-scoreup');
+	} else if(winningPlayer.name.toLowerCase() == p2) {
+		console.log(`${p2} won at ${new Date()}`);
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team1-scoreup');
+	} else {
+		console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`);
+	}
+	await handleMatchEndScenarios(winningPlayer);
+}
+
+async function handleMatchEndScenarios(winningPlayer) {
+	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+	if (program_state.best_of != 0 && currentSet) {
+		let win_score = Math.ceil(program_state.score[1].best_of / 2);
+		if((program_state.score[1].team[1].score >= win_score) || (program_state.score[1].team[2].score >= win_score)) {
+			if (webSocketInfo.twitchConnected == 1) {
+				await handlePredictionResolution(winningPlayer);
+				if (streametaJson != null && webSocketInfo.obsConnected == 1) {
+					await updateStreametaJsonEndTime();
+				}
+			}
+		}
+	}
+	if (program_state.score[1].match == "Grand Final") {
+		await handleGrandFinalReset(program_state);
+	}
+}
+
+async function handlePredictionResolution(winningPlayer) {
+	let winningOutcomeName;
+	let isSwapped = await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-get-swap');
+	if (winningPlayer.name.toLowerCase() == p1) {
+		winningOutcomeName = isSwapped == "True" ? currentSet.p1_name : currentSet.p2_name;
+	} else if (winningPlayer.name.toLowerCase() == p2) {
+		winningOutcomeName = isSwapped == "True" ? currentSet.p2_name : currentSet.p1_name;
+	}
+	await resolvePrediction(winningOutcomeName);
+}
+
+async function resolvePrediction(winningOutcomeName) {
+	const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
+	if (activePredictions.data.length > 0) {
+		const activePrediction = activePredictions.data[0];
+		const winningOutcome = activePrediction.outcomes.find(outcome => outcome.title === winningOutcomeName);
+		if (winningOutcome) {
+			try {
+				const result = await apiClient.predictions.resolvePrediction(twitchUser, activePrediction.id, winningOutcome.id);
+				console.log('Prediction rewarded:', result);
+			} catch (error) {
+				if (error._body && error._body.includes('prediction event has already ended')) {
+					console.error('Error: The prediction event has already ended.');
+				} else {
+					console.error('Error resolving prediction:', error);
+				}
+			}
+		} else {
+			console.error('Winning outcome not found');
+		}
+	} else {
+		console.error('No active prediction found to reward.');
+	}
+}
+
+async function updateStreametaJsonEndTime() {
+	obs.call('GetStreamStatus').then(async (response) => {
+		if (response.outputActive) {
+			if (streametaJson.sets.length > 0) {
+				if (program_state.score[1].match != "Grand Final") {
+					streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
+					updateStreametaJson();
+				} else {
+					if(!((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true))) { //worlds worst if statement
+						streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
+						updateStreametaJson();
+					}
+				}
+			}
+		}
+	});
+}
+
+async function handleGrandFinalReset(program_state) {
+	if((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true)) {
+		// await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-match');
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=1');
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=2');
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=5&match=Grand Final Reset');
+		await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-scores');
+		if(webSocketInfo.obsConnected == 1) {
+			obs.call('GetStreamStatus').then(async (response) => {
+				if(response.outputActive && timestampsFileName != undefined) {
+					let timestamp = `${response.outputTimecode.split(".")[0]} - Grand Final Reset - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
+					fs.appendFile(timestampsFileName, timestamp, (err) => {
+						if (err) throw err;
+						console.log(timestamp);
+					});
+					if (webSocketInfo.twitchConnected == 1) {
+						await createPrediction();
+					}
+				}
+			});
+		}
+	}
+}
+
+async function handleSwitchData(data) {
+	const info = parseSwitchData(data);
+	if (!info) return;
+
+	updateWebSocketInfo(info);
+
+	let numChar = info.players.filter(player => !player.is_cpu && player.name != null).length;
+
+	if (info.is_match && oldMatchInfo !== info.is_match) {
+		handleMatchStart(info);
+	} else if (!info.is_match && oldMatchInfo !== info.is_match) {
+		handleMatchEnd(info);
+	}
+
+	if (webSocketInfo.obsConnected == 1) {
+		if (numChar !== numCharOld) {
+			obs.call('SetSceneItemEnabled', {
+				'sceneName': CONFIG.GAME_SCENE,
+				'sceneItemId': overlayId,
+				'sceneItemEnabled': numChar === 2
+			});
+			numCharOld = numChar;
+		}
+		handleResultsScreen(info);
+		handleAutoBracketScene(info);
+	}
+
+	handlePlayerUpdates(info);
+}
+
+function handleSwitchConnectionEnd() {
+	console.log('Switch connection closed');
+	webSocketInfo.switchConnected = 0;
+	updateGUI();
+}
+
+function handleSwitchConnectionError(error) {
+	console.log('Switch connection failed', error);
+	webSocketInfo.switchError = serializeError(error);
+	webSocketInfo.switchConnected = 0;
+	updateGUI();
+}
+
+function setupSwitchConnection() {
+	server.on('data', handleSwitchData);
+	server.on('end', handleSwitchConnectionEnd);
+	server.on('error', handleSwitchConnectionError);
+}
+
 function connectToSwitch() {
 	server = net.createConnection({ host: CONFIG.SWITCH_IP, port: CONFIG.SWITCH_PORT }, () => {
-		if(!server.readable) {
-			console.log("OOPS FAKE CONNECTION TO SWITCH!")
-			console.log("ALREADY AN EXISTING CONNECTION LOL??")
+		if (!server.readable) {
+			console.log("OOPS FAKE CONNECTION TO SWITCH!");
+			console.log("ALREADY AN EXISTING CONNECTION LOL??");
 			return;
 		}
-		// server.setTimeout(1000);
 		console.log('Connected to Switch');
 		webSocketInfo.switchConnected = 1;
 		webSocketInfo.switchError = "";
 		updateGUI();
 
-		oldPlayers = null;
-		oldMatchInfo = null;
-		numCharOld = 0;
-		isAutoBracketScene = false;
-		previousInfo = null;
-
-		var invalidParseAttempts = 0;
-		server.on('data', async (data) => {
-			var info;
-
-			concat_data += data.toString();
-
-			if(data.toString().includes('\n')) {
-				try {
-					var info = JSON.parse(concat_data.toString());
-					concat_data = '';
-				} catch (error) {
-					// console.log('Could not parse JSON');
-					// console.log(data.toString());
-					invalidParseAttempts++;
-					if (invalidParseAttempts > maxInvalidParseAttempts) {
-						// console.log('Too many invalid parse attempts, resetting concat_data');
-						concat_data = '';
-					}
-					return;
-				}
-			} else {
-				return;
-			}
-
-			// var onlyGUIInfo = info;
-			
-			webSocketInfo.switchInfo = info;
-			countInfoPerSec++;
-			updateGUI();
-
-			let numChar = 0;
-			for (const player of info.players) {
-				if (!player.is_cpu && player.name != null) {
-					numChar += 1;
-				}
-			}
-
-			if (info.is_match && oldMatchInfo !== info.is_match) {
-				oldMatchInfo = info.is_match;
-				if(webSocketInfo.tshConnected == 1) {
-					await updateChars(info.players); // just in case two people on different sets play the same character 
-				}
-				if(webSocketInfo.obsConnected == 1) {
-					if(webSocketInfo.tshConnected == 1) {
-						if(CONFIG.USE_PLAYER_CAMS) {
-							if(CONFIG.ONLY_PLAYER_CAMS_WITH_COMMENTARY) {
-								isCommentary().then((hasCommentary) => {
-									if (hasCommentary) {
-										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
-									} else {
-										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
-									}
-								});
-							} else {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE_PLAYERCAMS });
-							}
-						}
-					} else {
-						obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.GAME_SCENE });
-					}
-
-					if (currentSet != null && currentSet !== oldSet) {
-						obs.call('GetStreamStatus').then(async (response) => {
-							if (response.outputActive) {
-								if (timestampsFileName != undefined) {
-									let timestamp = `${response.outputTimecode.split(".")[0]} - ${currentSet.round_name} - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
-						
-									// Read the last line of the file
-									const rl = readline.createInterface({
-										input: fs.createReadStream(timestampsFileName),
-										output: process.stdout,
-										terminal: false
-									});
-						
-									let lastLine = '';
-									rl.on('line', (line) => {
-										lastLine = line;
-									});
-						
-									rl.on('close', () => {
-										// Compare the last line with the new timestamp
-										if (lastLine.split(" - ")[1] !== timestamp.split(" - ")[1]) {
-											// Append the new timestamp if it is not a duplicate
-											fs.appendFile(timestampsFileName, timestamp, (err) => {
-												if (err) throw err;
-												console.log(timestamp);
-											});
-										}
-									});
-								}
-								if (webSocketInfo.twitchConnected == 1) {
-									try {
-										prediction = await apiClient.predictions.createPrediction(twitchUser, {
-											autoLockAfter: 60,
-											title: `Who will win ${currentSet.round_name}?`,
-											outcomes: [
-												currentSet.p1_name,
-												currentSet.p2_name
-											]
-										});
-									
-										console.log('Prediction created:', prediction);
-									} catch (error) {
-										if (error._body && error._body.includes('prediction event already active')) {
-											console.log('An active prediction already exists. Ending it...');
-								
-											// Fetch the active prediction
-											const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
-											if (activePredictions.data.length > 0) {
-												const activePrediction = activePredictions.data[0];
-								
-												// End the active prediction
-												await apiClient.predictions.cancelPrediction(twitchUser, activePrediction.id, 'CANCELED');
-												console.log('Active prediction ended:', activePrediction);
-								
-												// Create a new prediction
-												prediction = await apiClient.predictions.createPrediction(twitchUser, {
-													autoLockAfter: 1,
-													title: `Who will win ${currentSet.round_name}?`,
-													outcomes: [
-														currentSet.p1_name,
-														currentSet.p2_name
-													]
-												});
-								
-												console.log('New prediction created:', prediction);
-											} else {
-												console.error('No active prediction found to end.');
-											}
-										} else {
-											console.error('Error creating prediction:', error);
-										}
-									}
-									if(streametaJson != null) {
-										var set = {};
-										set.broadcast = broadcastId;
-										set.start_time = response.outputTimecode.split(".")[0];
-										set.end_time = "null";
-										var tournamentName = streametaJson.name;
-										if(tournamentName.includes("Pōneke Popoff")) {
-											tournamentName = tournamentName.replace("Pōneke Popoff", "PōP");
-										}
-										if(tournamentName.includes(" - ")) {
-											tournamentName = tournamentName = tournamentName.split(" - ")[0];
-										}
-										set.title = `${tournamentName}: ${currentSet.p1_name} vs ${currentSet.p2_name} (${currentSet.round_name})`;
-										if(bracketUrl == null) {
-											let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
-											bracketUrl = settings?.TOURNAMENT_URL;
-										}
-										if (bracketUrl != null && bracketUrl != "") {
-											set.description = "Bracket: " + bracketUrl;
-										} else {
-											set.description = "";
-										}
-										set.tags = CONFIG.STREAMETA_TAGS;
-										set.notify = CONFIG.STREAMETA_NOTIFY;
-										if (streametaJson.sets.length > 0) {
-											if (streametaJson.sets[streametaJson.sets.length - 1].title != set.title) { // duplicate
-												if (streametaJson.sets[streametaJson.sets.length - 1].end_time == "null") {
-													streametaJson.sets[streametaJson.sets.length - 1].end_time = response.outputTimecode.split(".")[0]; // prev set never ended whoops lets just end it as the next one starts
-												}
-												streametaJson.sets.push(set);
-											}
-										} else {
-											streametaJson.sets.push(set);
-										}
-										updateStreametaJson();
-									}
-								}
-							}
-						});
-						oldSet = currentSet;
-					}
-				}
-			} else if (!info.is_match && oldMatchInfo !== info.is_match) {
-				oldMatchInfo = info.is_match;
-				if(webSocketInfo.obsConnected == 1) {
-					if(webSocketInfo.tshConnected == 1) {
-						isCommentary().then((hasCommentary) => {
-							if (hasCommentary) {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_COMS_SCENE });
-							} else {
-								obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
-							}
-						});
-					} else {
-						obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
-					}
-				}
-			}
-
-
-			if (webSocketInfo.obsConnected == 1) {
-				if (numChar !== numCharOld) {
-					if (numChar === 2) {
-						obs.call('SetSceneItemEnabled', {
-							'sceneName': CONFIG.GAME_SCENE,
-							'sceneItemId': overlayId, 
-							'sceneItemEnabled': true ,
-						});
-					} else {
-						obs.call('SetSceneItemEnabled', {
-							'sceneName': CONFIG.GAME_SCENE,
-							'sceneItemId': overlayId, 
-							'sceneItemEnabled': false,
-						});
-					}
-					numCharOld = numChar;
-				}
-
-				if (info.is_results_screen) {
-					if (resultsScreenStart === null) {
-						resultsScreenStart = Date.now();
-					} else {
-						if(CONFIG.GO_TO_BRACKET_ON_INACTIVE) {
-							if (Date.now() - resultsScreenStart > CONFIG.BRACKET_INACTIVITY_TIME) {
-								fetch('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/update-bracket')
-								.then(response => {
-									if(isAutoBracketScene === false) {
-										obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.BRACKET_SCENE });
-									}
-								})
-								.catch(error => console.error('Error resetting bracket:', error));
-								resultsScreenStart = null;
-								isAutoBracketScene = true;
-							}
-						}
-					}
-				} else {
-					resultsScreenStart = null;
-				}
-
-				if (isAutoBracketScene === true) {
-					let infoCopy = { ...info };
-					let previousInfoCopy = { ...previousInfo };
-				
-					delete infoCopy.playerX;
-					delete infoCopy.playerY;
-					delete previousInfoCopy.playerX;
-					delete previousInfoCopy.playerY; //player x and y pos is still updated on results screen
-				
-					if (JSON.stringify(infoCopy) !== JSON.stringify(previousInfoCopy)) {
-						if(webSocketInfo.tshConnected == 1) {
-							isCommentary().then((hasCommentary) => {
-								if (hasCommentary) {
-									obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_COMS_SCENE });
-								} else {
-									obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
-								}
-							});
-						} else {
-							obs.call('SetCurrentProgramScene', { 'sceneName': CONFIG.NOT_GAME_SCENE });
-						}
-						isAutoBracketScene = false;
-					}
-				}
-				previousInfo = JSON.parse(JSON.stringify(info));
-			}
-
-
-			if (webSocketInfo.tshConnected == 1) {
-				if (oldPlayers === null) {
-					oldPlayers = JSON.parse(JSON.stringify(info.players));
-					await tshLoadSet(info);
-				}
-
-				for (let i = 0; i < oldPlayers.length; i++) {
-					const oldPlayer = oldPlayers[i];
-					const currentPlayer = info.players[i];
-
-					if (oldPlayer.name !== currentPlayer.name) {
-						// console.log(oldPlayer.name)
-						// console.log(currentPlayer.name)
-						oldPlayers = JSON.parse(JSON.stringify(info.players));
-						await tshLoadSet(info);
-						break;
-					}
-
-					if (oldPlayer.stocks !== currentPlayer.stocks) {
-						// console.log(currentPlayer)
-						if (currentPlayer.stocks == 0) {
-							if (p1 != null && p2 != null) {
-								var winningPlayer;
-								var losingPlayer;
-
-								// info.players.forEach(player => {
-									// if (player.stocks > 0 && player.name != null) {
-										// winningPlayer = player;
-										// break;
-									// }
-								// });
-								
-								for(let i = 0; i < info.players.length; i++) {
-									let player = info.players[i];
-									if (player.stocks > 0 && player.name != null) {
-										winningPlayer = player;
-										// console.log(`winng player name ${player.name} left`);
-										// console.log(`winng player had ${player.stocks} left`);
-										break;
-									}
-								}
-
-								if(winningPlayer && lockScoreUpdate == false) {
-									lockScoreUpdate = true;
-									if (winningPlayer.name.toLowerCase() == p1) {
-										console.log(`${p1} won at ${new Date()}`);
-										await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team0-scoreup');
-									} else if(winningPlayer.name.toLowerCase() == p2) {
-										console.log(`${p2} won at ${new Date()}`);
-										await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-team1-scoreup');
-									} else {
-										console.error(`Could not find winning player in loaded set!! This should never happen!!!! Winning player: ${winningPlayer.name} P1: ${p1} P2: ${p2}`)
-									}
-									let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
-
-									if (program_state.best_of != 0 && currentSet) {
-										let win_score = Math.ceil(program_state.score[1].best_of / 2);
-										if((program_state.score[1].team[1].score >= win_score) || (program_state.score[1].team[2].score >= win_score)) {
-											let winningOutcomeName;
-											var isSwapped = await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-get-swap');
-											console.log({isSwapped})
-											if (winningPlayer.name.toLowerCase() == p1) {
-												if (isSwapped == "True") {
-													winningOutcomeName = currentSet.p1_name;
-												} else {
-													winningOutcomeName = currentSet.p2_name;
-												}
-											} else {												
-												if(winningPlayer.name.toLowerCase() == p2) {
-													if (isSwapped == "True") {
-														winningOutcomeName = currentSet.p2_name;
-													} else {
-														winningOutcomeName = currentSet.p1_name;
-													}
-												}
-											}
-
-											if (webSocketInfo.twitchConnected == 1) {
-												const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
-
-												if (activePredictions.data.length > 0) {
-													const activePrediction = activePredictions.data[0];
-													
-													const winningOutcome = activePrediction.outcomes.find(outcome => outcome.title === winningOutcomeName);
-
-													if (winningOutcome) {
-														try {
-															const result = await apiClient.predictions.resolvePrediction(twitchUser, activePrediction.id, winningOutcome.id);
-															console.log('Prediction rewarded:', result);
-														} catch (error) {
-															if (error._body && error._body.includes('prediction event has already ended')) {
-																console.error('Error: The prediction event has already ended.');
-															} else {
-																console.error('Error resolving prediction:', error);
-															}
-														}
-													} else {
-														console.error('Winning outcome not found');
-													}
-												} else {
-													console.error('No active prediction found to reward.');
-												}
-
-												if(streametaJson != null) {
-													if(webSocketInfo.obsConnected == 1) {
-														obs.call('GetStreamStatus').then(async (response) => {
-															if (response.outputActive) {
-																if (streametaJson.sets.length > 0) {
-																	if (program_state.score[1].match != "Grand Final") {																		
-																		streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
-																		updateStreametaJson();
-																	} else {
-																		if(!((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true))) { //worlds worst if statement
-																			streametaJson.sets[streametaJson.sets.length - 1].end_time = addSecondsToTimecode(response.outputTimecode.split(".")[0], 30);
-																			updateStreametaJson();
-																		}
-																	}
-																}
-															}
-														});
-													}
-												}
-											}
-										}
-									}
-
-									if(program_state.score[1].match == "Grand Final") {
-										if((program_state.score[1].team[1].score >= 3 && program_state.score[1].team[1].losers == true) || (program_state.score[1].team[2].score >= 3 && program_state.score[1].team[2].losers == true)) {
-											// await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-match');
-											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=1');
-											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?losers=False&team=2');
-											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-set?best-of=5&match=Grand Final Reset');
-											await makeHttpRequest('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/scoreboard0-reset-scores');
-											if(webSocketInfo.obsConnected == 1) {
-												obs.call('GetStreamStatus').then(async (response) => {
-													if(response.outputActive && timestampsFileName != undefined) {
-														let timestamp = `${response.outputTimecode.split(".")[0]} - Grand Final Reset - ${currentSet.p1_name} vs ${currentSet.p2_name}\n`;
-														fs.appendFile(timestampsFileName, timestamp, (err) => {
-															if (err) throw err;
-															console.log(timestamp);
-														});
-
-														if (webSocketInfo.twitchConnected == 1) {
-															try {
-																prediction = await apiClient.predictions.createPrediction(twitchUser, {
-																	autoLockAfter: 60,
-																	title: `Who will win Grand Final Reset?`,
-																	outcomes: [
-																		currentSet.p1_name,
-																		currentSet.p2_name
-																	]
-																});
-															
-																console.log('Prediction created:', prediction);
-															} catch (error) {
-																if (error._body && error._body.includes('prediction event already active')) {
-																	console.log('An active prediction already exists. Ending it...');
-														
-																	// Fetch the active prediction
-																	const activePredictions = await apiClient.predictions.getPredictions(twitchUser, { status: 'ACTIVE' });
-																	if (activePredictions.data.length > 0) {
-																		const activePrediction = activePredictions.data[0];
-														
-																		// End the active prediction
-																		await apiClient.predictions.cancelPrediction(twitchUser, activePrediction.id, 'CANCELED');
-																		console.log('Active prediction ended:', activePrediction);
-														
-																		// Create a new prediction
-																		prediction = await apiClient.predictions.createPrediction(twitchUser, {
-																			autoLockAfter: 1,
-																			title: `Who will win Grand Final Reset?`,
-																			outcomes: [
-																				currentSet.p1_name,
-																				currentSet.p2_name
-																			]
-																		});
-														
-																		console.log('New prediction created:', prediction);
-																	} else {
-																		console.error('No active prediction found to end.');
-																	}
-																} else {
-																	console.error('Error creating prediction:', error);
-																}
-															}
-														}
-													}
-												})
-											}
-										}
-									}
-									lockScoreUpdate = false;
-								}
-							}
-						}
-
-						oldPlayers = JSON.parse(JSON.stringify(info.players));
-						break;
-					}
-
-					if (oldPlayer.character !== currentPlayer.character || oldPlayer.skin !== currentPlayer.skin) {
-						await updateChars(info.players);
-						oldPlayers = JSON.parse(JSON.stringify(info.players));
-					}
-				}
-			}
-
-
-			// console.log(JSON.stringify(info, null, 4));
-		});
-	});
-    server.on('end', () => {
-        console.log('Switch connection closed');
-        webSocketInfo.switchConnected = 0;
-		updateGUI();
-    });
-	server.on('error', (error) => {
-		console.log('Switch connection failed', error);
-		webSocketInfo.switchError = serializeError(error);
-		webSocketInfo.switchConnected = 0;
-		updateGUI();
+		clearSwitchCache();
+		setupSwitchConnection();
 	});
 }
 
+var invalidParseAttempts = 0;
 async function clearSwitchCache() { // broken :(
 	oldPlayers = null;
 	oldMatchInfo = null;
 	numCharOld = 0;
 	isAutoBracketScene = false;
 	previousInfo = null;
+	invalidParseAttempts = 0;
 	console.log("clearSwitchCache");
 }
 
