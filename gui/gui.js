@@ -1,11 +1,6 @@
 // Function to establish WebSocket connection
 var socket;
-var heartbeatInterval;
 function connectWebSocket() {
-	// Clear any existing heartbeat interval
-	if (heartbeatInterval) {
-		clearInterval(heartbeatInterval);
-	}
 
 	// Remove existing event listeners
 	if (socket) {
@@ -23,25 +18,6 @@ function connectWebSocket() {
 		socket.addEventListener('open', function (event) {
 			socket.send(JSON.stringify({ command: 'heartbeat' }));
 			resolve();
-		});
-
-		// Listen for messages
-		socket.addEventListener('message', function (event) {
-			// console.log('Message from server: ', event.data);
-			const data = JSON.parse(event.data);
-			if (data.status === 'success' && data.message === 'heartbeat') {
-				// Clear any existing heartbeat interval
-				if (heartbeatInterval) {
-					clearInterval(heartbeatInterval);
-				}
-
-				// Send heartbeat every 30 seconds to keep connection alive
-				heartbeatInterval = setInterval(() => {
-					socket.send(JSON.stringify({ command: 'heartbeat' }));
-				}, 30000);
-			} else if (data.status === 'error' && data.message === 'heartbeat') {
-				handleFailure();
-			}
 		});
 
 		// Connection closed
