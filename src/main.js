@@ -402,7 +402,7 @@ async function tshLoadSet(info) {
 		}
 	}
 
-	updateChars(players);
+	await updateChars(players);
 
 	webSocketInfo.tshInfo.players = players;
 	webSocketInfo.tshInfo.foundSet = foundSet;
@@ -460,8 +460,8 @@ async function connectToOBS() {
 				if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
 					let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
 					let tournamentUrl = settings.TOURNAMENT_URL;
-					sendMessage(`!commands edit !bracket ${tournamentUrl}`);
-					createStreametaJson();
+					await sendMessage(`!commands edit !bracket ${tournamentUrl}`);
+					await createStreametaJson();
 				}
 			} else if (!response.outputActive && isStreaming) {
 				isStreaming = false;
@@ -564,8 +564,8 @@ obs.on('StreamStateChanged', async (response) => {
 		if (webSocketInfo.tshConnected == 1 && webSocketInfo.twitchConnected == 1) {
 			let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
 			let tournamentUrl = settings.TOURNAMENT_URL;
-			sendMessage(`!commands edit !bracket ${tournamentUrl}`);
-			createStreametaJson();
+			await sendMessage(`!commands edit !bracket ${tournamentUrl}`);
+			await createStreametaJson();
 		}
 	} else if (!response.outputActive && isStreaming) {
 		isStreaming = false;
@@ -748,11 +748,11 @@ function parseSwitchData(data) {
 			concat_data = '';
 			return info;
 		} catch (error) {
-			// console.log('Could not parse JSON');
-			// console.log(data.toString());
+			console.log('Could not parse JSON');
+			console.log(data.toString());
 			invalidParseAttempts++;
 			if (invalidParseAttempts > maxInvalidParseAttempts) {
-				// console.log('Too many invalid parse attempts, resetting concat_data');
+				console.log('Too many invalid parse attempts, resetting concat_data');
 				concat_data = '';
 			}
 			return null;
@@ -807,7 +807,7 @@ async function handleStreamActive(response) {
 	if (webSocketInfo.twitchConnected == 1) {
 		await createPrediction();
 		if (streametaJson != null) {
-			updateStreametaJsonWithSet(response);
+			await updateStreametaJsonWithSet(response);
 		}
 	}
 }
@@ -961,28 +961,36 @@ function handleAutoBracketScene(info) {
 }
 
 async function handlePlayerUpdates(info) {
-	if (webSocketInfo.tshConnected == 1) {
-		if (oldPlayers === null) {
-			oldPlayers = JSON.parse(JSON.stringify(info.players));
-			await tshLoadSet(info);
-		}
+	if (webSocketInfo.tshConnected !== 1) return;
 
-		for (let i = 0; i < oldPlayers.length; i++) {
-			const oldPlayer = oldPlayers[i];
-			const currentPlayer = info.players[i];
+	if (oldPlayers === null) {
+		oldPlayers = JSON.parse(JSON.stringify(info.players));
+		await tshLoadSet(info);
+		return;
+	}
 
-			if (isPlayerChanged(oldPlayer, currentPlayer)) {
-				if (oldPlayer.name !== currentPlayer.name) {
-					await handlePlayerNameChange(info);
-				} else if (oldPlayer.stocks !== currentPlayer.stocks) {
-					await handlePlayerStockChange(currentPlayer);
-				} else {
-					await updateChars(info.players);
-					oldPlayers = JSON.parse(JSON.stringify(info.players));
-				}
-				break;
+	let hasChanges = false;
+
+	for (let i = 0; i < oldPlayers.length; i++) {
+		const oldPlayer = oldPlayers[i];
+		const currentPlayer = info.players[i];
+
+		if (isPlayerChanged(oldPlayer, currentPlayer)) {
+			hasChanges = true;
+
+			if (oldPlayer.name !== currentPlayer.name) {
+				await handlePlayerNameChange(info);
+			} else if (oldPlayer.stocks !== currentPlayer.stocks) {
+				await handlePlayerStockChange(currentPlayer, info);
+			} else {
+				await updateChars(info.players);
 			}
+			break;
 		}
+	}
+
+	if (hasChanges) {
+		oldPlayers = JSON.parse(JSON.stringify(info.players));
 	}
 }
 
@@ -998,7 +1006,7 @@ async function handlePlayerNameChange(info) {
 	await tshLoadSet(info);
 }
 
-async function handlePlayerStockChange(currentPlayer) {
+async function handlePlayerStockChange(currentPlayer, info) {
 	if (currentPlayer.stocks == 0) {
 		if (p1 != null && p2 != null) {
 			let winningPlayer = info.players.find(player => player.stocks > 0 && player.name != null);
@@ -1072,7 +1080,7 @@ async function resolvePrediction(winningOutcomeName) {
 				}
 			}
 		} else {
-			console.error('Winning outcome not found');
+			console.error('Prediction winning outcome not found');
 		}
 	} else {
 		console.error('No active prediction found to reward.');
@@ -1123,16 +1131,20 @@ async function handleGrandFinalReset(program_state) {
 
 async function handleSwitchData(data) {
 	const info = parseSwitchData(data);
-	if (!info) return;
+	if (!info) {
+		// console.error('Could not parse Switch data!');
+		// console.log(data.toString());
+		return;
+	};
 
 	updateWebSocketInfo(info);
 
 	let numChar = info.players.filter(player => !player.is_cpu && player.name != null).length;
 
 	if (info.is_match && oldMatchInfo !== info.is_match) {
-		handleMatchStart(info);
-	} else if (!info.is_match && oldMatchInfo !== info.is_match) {
-		handleMatchEnd(info);
+		await handleMatchStart(info);
+	} else if (!info.is_match && oldMatchInfo == info.is_match) {
+		await handleMatchEnd(info);
 	}
 
 	if (webSocketInfo.obsConnected == 1) {
@@ -1148,7 +1160,7 @@ async function handleSwitchData(data) {
 		handleAutoBracketScene(info);
 	}
 
-	handlePlayerUpdates(info);
+	await handlePlayerUpdates(info);
 }
 
 function handleSwitchConnectionEnd() {
@@ -1183,8 +1195,8 @@ function connectToSwitch() {
 		updateGUI();
 
 		clearSwitchCache();
-		setupSwitchConnection();
 	});
+	setupSwitchConnection();
 }
 
 var invalidParseAttempts = 0;
