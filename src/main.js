@@ -233,7 +233,7 @@ const PORT_COLORS = [
 
 async function tshLoadSet(info) {
 	console.log(`Called tshLoadSet at ${new Date()}\n`);
-	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/out/program_state.json');
 	if(program_state.score[1].match == "Grand Final Reset") {
 		console.log("It's grands reset, no need to ever load another set")
 		return;
@@ -627,7 +627,7 @@ async function createStreametaJson() {
 	streametaJsonFileName = path.resolve(__dirname, `../streameta/${broadcastId}.json`);
 	if (!fs.existsSync(streametaJsonFileName)) {
 		let settings = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/user_data/settings.json');
-		let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+		let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/out/program_state.json');
 		streametaJson = {};
 		streametaJson.name = program_state.tournamentInfo.tournamentName;
 		streametaJson.channel = CONFIG.TWITCH_CHANNEL;
@@ -1035,7 +1035,7 @@ async function updateScore(winningPlayer) {
 }
 
 async function handleMatchEndScenarios(winningPlayer) {
-	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/program-state');
+	let program_state = await loadJsonFromUrl('http://' + CONFIG.TSH_IP + ':' + CONFIG.TSH_PORT + '/out/program_state.json');
 	if (program_state.best_of != 0 && currentSet) {
 		let win_score = Math.ceil(program_state.score[1].best_of / 2);
 		if((program_state.score[1].team[1].score >= win_score) || (program_state.score[1].team[2].score >= win_score)) {
